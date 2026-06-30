@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\AryanSingh\\\\Downloads\\\\Vendor Onboarding\\\\frontend\\\\src\\\\components\" | ForEach-Object { $_.Name })"
+    ]
+  }
+}

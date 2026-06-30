@@ -1,0 +1,32 @@
+import uuid
+from django.db import models
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from .managers import UserManager
+
+
+class User(AbstractBaseUser, PermissionsMixin):
+    ROLE_CHOICES = [
+        ('ADMIN', 'Admin'),
+        ('VENDOR', 'Vendor'),
+        ('CUSTOMER', 'Customer'),
+        
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(unique=True)
+    full_name = models.CharField(max_length=255, blank=True)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='VENDOR')
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = UserManager()
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
+
+    class Meta:
+        db_table = 'users'
+
+    def __str__(self):
+        return self.email
