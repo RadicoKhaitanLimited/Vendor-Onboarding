@@ -33,6 +33,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -71,6 +72,11 @@ if _USE_SQLITE:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+elif config('DATABASE_URL', default=''):
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.parse(config('DATABASE_URL'), conn_max_age=600, ssl_require=True)
+    }
 else:
     DATABASES = {
         'default': {
@@ -99,6 +105,11 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -129,10 +140,10 @@ SIMPLE_JWT = {
 }
 
 # ── CORS ─────────────────────────────────────────────────────────
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-]
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:5173,http://127.0.0.1:5173'
+).split(',')
 CORS_ALLOW_CREDENTIALS = True
 
 # ── Email (SMTP) ─────────────────────────────────────────────────
@@ -151,8 +162,6 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 # ── Onboarding Token Expiry ──────────────────────────────────────
 ONBOARDING_TOKEN_EXPIRY_HOURS = 72
 
-
-from decouple import config
 
 SANDBOX_API_KEY = config("SANDBOX_API_KEY")
 SANDBOX_API_SECRET = config("SANDBOX_API_SECRET")
