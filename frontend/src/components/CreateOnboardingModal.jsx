@@ -5,13 +5,17 @@ import { useToast } from '../context/ToastContext'
 export default function CreateOnboardingModal({ onClose, onCreated }) {
   const toast = useToast()
   const [email, setEmail] = useState('')
-  const [type, setType] = useState('VENDOR')
+  const [type, setType] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    if (!type) {
+      setError('Please select Vendor or Customer onboarding.')
+      return
+    }
     setLoading(true)
     try {
       await api.post('/onboarding/create/', { email, onboarding_type: type })
@@ -43,7 +47,7 @@ export default function CreateOnboardingModal({ onClose, onCreated }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="vendor@company.com"
+              placeholder={type === 'CUSTOMER' ? 'customer@company.com' : 'vendor@company.com'}
               required
               autoFocus
             />

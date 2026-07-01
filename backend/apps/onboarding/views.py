@@ -551,8 +551,10 @@ class ValidateTokenView(APIView):
         if not tok.is_valid():
             return Response({'detail': 'Token has expired or already used.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = OnboardingTokenSerializer(tok)
-        return Response(serializer.data)
+        data = OnboardingTokenSerializer(tok).data
+        data['onboarding_type'] = tok.onboarding.onboarding_type
+        data['entity_type'] = tok.onboarding.get_onboarding_type_display()
+        return Response(data)
 
 
 # ── Public: Submit / update onboarding form ───────────────────────

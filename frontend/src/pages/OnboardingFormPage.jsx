@@ -38,16 +38,24 @@ function validatePanGst(pan, gst) {
   return gst.substring(2, 12).toUpperCase() === pan.toUpperCase() ? 'match' : 'no-match'
 }
 
-function getEntityType(onboarding) {
-  const type = String(onboarding?.onboarding_type || '').trim().toUpperCase()
+function getEntityType(tokenPayload) {
+  const onboarding = tokenPayload?.onboarding
+  const type = String(
+    onboarding?.onboarding_type ||
+    tokenPayload?.onboarding_type ||
+    tokenPayload?.entity_type ||
+    ''
+  ).trim().toUpperCase()
   if (type === 'VENDOR') return 'Vendor'
   if (type === 'CUSTOMER') return 'Customer'
+  if (type === 'VENDOR ONBOARDING') return 'Vendor'
+  if (type === 'CUSTOMER ONBOARDING') return 'Customer'
 
   const code = String(onboarding?.onboarding_code || '').trim().toUpperCase()
   if (code.startsWith('V')) return 'Vendor'
   if (code.startsWith('C')) return 'Customer'
 
-  return 'Vendor'
+  return 'Customer'
 }
 
 export default function OnboardingFormPage() {
@@ -136,7 +144,7 @@ export default function OnboardingFormPage() {
       .finally(() => setLoading(false))
   }, [token])
 
-  const entityType = getEntityType(tokenData?.onboarding)
+  const entityType = getEntityType(tokenData)
   const isApproved = tokenData?.onboarding?.status === 'APPROVED'
   const hasDocument = (docType, nextFiles = files) => Boolean(nextFiles[docType] || tokenData?.onboarding?.documents?.some((doc) => doc.document_type === docType))
 

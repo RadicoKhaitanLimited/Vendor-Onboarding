@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def send_onboarding_invite(to_email: str, onboarding, token: str):
 
-    entity_type = onboarding.onboarding_type.capitalize()
+    entity_type = onboarding.get_onboarding_type_display()
 
     form_url = f"{settings.FRONTEND_URL}/onboarding/{token}"
 
@@ -17,6 +17,7 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
 
     context = {
         "entity_type": entity_type,
+        "entity_type_lower": entity_type.lower(),
         "onboarding_code": onboarding.onboarding_code,
         "form_url": form_url,
         "expiry_hours": getattr(
