@@ -170,3 +170,9 @@ SANDBOX_API_KEY = config("SANDBOX_API_KEY")
 SANDBOX_API_SECRET = config("SANDBOX_API_SECRET")
 
 ANTHROPIC_API_KEY = config("ANTHROPIC_API_KEY")
+
+
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='http://localhost:5173'
+).split(',')
