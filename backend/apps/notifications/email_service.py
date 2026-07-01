@@ -38,7 +38,8 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
             to=[to_email],
         )
         email.attach_alternative(html_body, 'text/html')
-        email.send(fail_silently=True)
+        email.send(fail_silently=False)
 
     except Exception as e:
-        logger.warning(f"Email sending failed (non-fatal): {e}")
+        logger.exception("Email sending failed")
+    raise
