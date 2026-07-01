@@ -1,5 +1,4 @@
 import logging
-
 from django.conf import settings
 from django.template.loader import render_to_string
 
@@ -9,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def send_onboarding_invite(to_email: str, onboarding, token: str):
+
     entity_type = onboarding.onboarding_type.capitalize()
 
     form_url = f"{settings.FRONTEND_URL}/onboarding/{token}"
@@ -32,25 +32,12 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
         context,
     )
 
-    logger.info("====================================")
-    logger.info("Microsoft Graph Email")
-    logger.info(f"From      : {settings.API_USER_ID}")
-    logger.info(f"To        : {to_email}")
-    logger.info(f"Subject   : {subject}")
-    logger.info("====================================")
+    logger.info("Sending Graph email to %s", to_email)
 
-    try:
-        send_graph_email(
-            to_email=to_email,
-            subject=subject,
-            html=html_body,   # ✅ Correct parameter
-        )
+    send_graph_email(
+        to_email=to_email,
+        subject=subject,
+        html=html_body,
+    )
 
-        logger.info("====================================")
-        logger.info("✅ EMAIL SENT SUCCESSFULLY")
-        logger.info("====================================")
-
-    except Exception as e:
-        logger.exception("❌ GRAPH EMAIL FAILED")
-        logger.exception(str(e))
-        raise
+    logger.info("Email sent successfully")
