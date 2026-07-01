@@ -1,5 +1,5 @@
 import logging
-from django.core.mail import EmailMultiAlternatives, get_connection
+from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 from django.template.loader import render_to_string
 
@@ -31,13 +31,11 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
             f"Regards,\nRadico Khaitan Ltd"
         )
 
-        connection = get_connection(timeout=5)
         email = EmailMultiAlternatives(
             subject=subject,
             body=text_body,
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[to_email],
-            connection=connection,
         )
         email.attach_alternative(html_body, 'text/html')
         email.send(fail_silently=True)
