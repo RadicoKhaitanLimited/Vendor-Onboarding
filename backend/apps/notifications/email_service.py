@@ -1,16 +1,23 @@
 import logging
-from django.core.mail import EmailMultiAlternatives
+
 from django.conf import settings
 from django.template.loader import render_to_string
+
+from .graph_email_service import send_graph_email
 
 logger = logging.getLogger(__name__)
 
 
 def send_onboarding_invite(to_email: str, onboarding, token: str):
+
     entity_type = onboarding.onboarding_type.capitalize()
+
     form_url = f"{settings.FRONTEND_URL}/onboarding/{token}"
 
-    subject = f"Radico Khaitan — {entity_type} Onboarding Invitation"
+    subject = (
+        f"Radico Khaitan — "
+        f"{entity_type} Onboarding Invitation"
+    )
 
     context = {
         "entity_type": entity_type,
@@ -29,42 +36,26 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
         context,
     )
 
-    text_body = (
-        f"Dear {entity_type},\n\n"
-        f"You have been invited to complete the Radico Khaitan {entity_type} onboarding process.\n\n"
-        f"Your Reference Code: {onboarding.onboarding_code}\n\n"
-        f"Please click the link below to fill your onboarding form:\n"
-        f"{form_url}\n\n"
-        f"This link will expire in {context['expiry_hours']} hours.\n\n"
-        f"Regards,\n"
-        f"Radico Khaitan Ltd"
-    )
-
-    email = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[to_email],
-    )
-
-    email.attach_alternative(html_body, "text/html")
-
     logger.info("====================================")
-    logger.info("Attempting to send email...")
-    logger.info(f"From : {settings.DEFAULT_FROM_EMAIL}")
+    logger.info("Microsoft Graph Email")
+    logger.info(f"From : {settings.API_USER_ID}")
     logger.info(f"To   : {to_email}")
-    logger.info(f"Host : {settings.EMAIL_HOST}")
-    logger.info(f"Port : {settings.EMAIL_PORT}")
     logger.info("====================================")
 
     try:
-        email.send(fail_silently=False)
+
+        send_graph_email(
+            to_email=to_email,
+            subject=subject,
+            html_body=html_body,
+        )
 
         logger.info("====================================")
-        logger.info("✅ EMAIL SENT SUCCESSFULLY")
+        logger.info("EMAIL SENT SUCCESSFULLY")
         logger.info("====================================")
 
-    except Exception as e:
-        logger.exception("❌ EMAIL SENDING FAILED")
-        logger.exception(str(e))
+    except Exception:
+
+        logger.exception("GRAPH EMAIL FAILED")
+
         raise

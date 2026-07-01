@@ -176,3 +176,8 @@ CSRF_TRUSTED_ORIGINS = config(
     'CSRF_TRUSTED_ORIGINS',
     default='http://localhost:5173'
 ).split(',')
+
+API_CLIENT_ID = config("API_CLIENT_ID")
+API_TENANT_ID = config("API_TENANT_ID")
+API_SECRET = config("API_SECRET")
+API_USER_ID = config("API_USER_ID")
