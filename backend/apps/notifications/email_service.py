@@ -8,16 +8,16 @@ logger = logging.getLogger(__name__)
 
 
 def _entity_type_for_onboarding(onboarding):
-    onboarding_type = str(getattr(onboarding, "onboarding_type", "") or "").strip().upper()
-    if onboarding_type == "VENDOR":
-        return "Vendor"
-    if onboarding_type == "CUSTOMER":
-        return "Customer"
-
     onboarding_code = str(getattr(onboarding, "onboarding_code", "") or "").strip().upper()
     if onboarding_code.startswith("V"):
         return "Vendor"
     if onboarding_code.startswith("C"):
+        return "Customer"
+
+    onboarding_type = str(getattr(onboarding, "onboarding_type", "") or "").strip().upper()
+    if onboarding_type == "VENDOR":
+        return "Vendor"
+    if onboarding_type == "CUSTOMER":
         return "Customer"
 
     return "Business Partner"

@@ -40,6 +40,10 @@ function validatePanGst(pan, gst) {
 
 function getEntityType(tokenPayload) {
   const onboarding = tokenPayload?.onboarding
+  const code = String(onboarding?.onboarding_code || tokenPayload?.onboarding_code || '').trim().toUpperCase()
+  if (code.startsWith('V')) return 'Vendor'
+  if (code.startsWith('C')) return 'Customer'
+
   const type = String(
     onboarding?.onboarding_type ||
     tokenPayload?.onboarding_type ||
@@ -51,11 +55,7 @@ function getEntityType(tokenPayload) {
   if (type === 'VENDOR ONBOARDING') return 'Vendor'
   if (type === 'CUSTOMER ONBOARDING') return 'Customer'
 
-  const code = String(onboarding?.onboarding_code || '').trim().toUpperCase()
-  if (code.startsWith('V')) return 'Vendor'
-  if (code.startsWith('C')) return 'Customer'
-
-  return 'Customer'
+  return 'Business Partner'
 }
 
 export default function OnboardingFormPage() {
