@@ -61,8 +61,7 @@ export default function MultiSelectDropdown({
 
       {open && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
-          background: 'var(--surface)', border: '1px solid var(--border-2)',
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 9999,
           borderRadius: 'var(--radius)', boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
           maxHeight: 220, overflowY: 'auto',
         }}>
@@ -123,7 +122,7 @@ export default function MultiSelectDropdown({
               {!disabled && (
                 <button
                   type="button"
-                  onMouseDown={(e) => { e.preventDefault(); toggle(v) }}
+                  onMouseDown={(e) => { e.preventDefault(); onChange(value.filter((item) => item !== v)) }}
                   style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1, fontWeight: 700 }}
                 >×</button>
               )}
