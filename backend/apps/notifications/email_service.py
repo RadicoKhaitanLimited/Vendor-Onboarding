@@ -9,15 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 def send_onboarding_invite(to_email: str, onboarding, token: str):
-
     entity_type = onboarding.onboarding_type.capitalize()
 
     form_url = f"{settings.FRONTEND_URL}/onboarding/{token}"
 
-    subject = (
-        f"Radico Khaitan — "
-        f"{entity_type} Onboarding Invitation"
-    )
+    subject = f"Radico Khaitan — {entity_type} Onboarding Invitation"
 
     context = {
         "entity_type": entity_type,
@@ -38,24 +34,23 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
 
     logger.info("====================================")
     logger.info("Microsoft Graph Email")
-    logger.info(f"From : {settings.API_USER_ID}")
-    logger.info(f"To   : {to_email}")
+    logger.info(f"From      : {settings.API_USER_ID}")
+    logger.info(f"To        : {to_email}")
+    logger.info(f"Subject   : {subject}")
     logger.info("====================================")
 
     try:
-
         send_graph_email(
             to_email=to_email,
             subject=subject,
-            html_body=html_body,
+            html=html_body,   # ✅ Correct parameter
         )
 
         logger.info("====================================")
-        logger.info("EMAIL SENT SUCCESSFULLY")
+        logger.info("✅ EMAIL SENT SUCCESSFULLY")
         logger.info("====================================")
 
-    except Exception:
-
-        logger.exception("GRAPH EMAIL FAILED")
-
+    except Exception as e:
+        logger.exception("❌ GRAPH EMAIL FAILED")
+        logger.exception(str(e))
         raise
