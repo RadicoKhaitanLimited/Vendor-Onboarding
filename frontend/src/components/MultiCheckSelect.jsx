@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 export default function MultiSelectDropdown({
   options,
@@ -10,13 +11,30 @@ export default function MultiSelectDropdown({
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [dropdownStyle, setDropdownStyle] = useState({})
   const ref = useRef(null)
+  const btnRef = useRef(null)
 
   useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  useEffect(() => {
+    if (open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setDropdownStyle({
+        position: 'fixed',
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        zIndex: 99999,
+      })
+    }
+  }, [open])
 
   const optionValue = (option) => typeof option === 'string' ? option : option.value
   const optionLabel = (option) => typeof option === 'string' ? option : option.label
@@ -28,7 +46,9 @@ export default function MultiSelectDropdown({
   const toggle = (opt) => {
     if (disabled) return
     const selectedValue = optionValue(opt)
-    onChange(value.includes(selectedValue) ? value.filter((v) => v !== selectedValue) : [...value, selectedValue])
+    onChange(value.includes(selectedValue)
+      ? value.filter((v) => v !== selectedValue)
+      : [...value, selectedValue])
   }
 
   const btnLabel = value.length === 0
@@ -36,13 +56,72 @@ export default function MultiSelectDropdown({
     : value.length === 1
       ? labelForValue(value[0])
       : `${value.length} selected`
+
   const filteredOptions = options.filter((option) =>
     optionLabel(option).toLowerCase().includes(search.trim().toLowerCase())
+  )
+
+  const dropdown = open && (
+    <div style={{
+      ...dropdownStyle,
+      background: 'var(--surface)',
+      border: '1px solid var(--border-2)',
+      borderRadius: 'var(--radius)',
+      boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+      maxHeight: 220,
+      overflowY: 'auto',
+    }}>
+      <div style={{
+        padding: 8, position: 'sticky', top: 0,
+        background: 'var(--surface)', zIndex: 1,
+        borderBottom: '1px solid var(--border)'
+      }}>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search code or description..."
+          autoFocus
+          style={{ fontSize: 12, padding: '7px 9px', width: '100%' }}
+        />
+      </div>
+      {filteredOptions.map((opt, i) => {
+        const selectedValue = optionValue(opt)
+        const selected = value.includes(selectedValue)
+        return (
+          <div
+            key={selectedValue}
+            onMouseDown={(e) => { e.preventDefault(); toggle(opt) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '9px 12px', cursor: 'pointer', fontSize: 13,
+              background: selected ? 'var(--brand-light)' : 'transparent',
+              color: selected ? 'var(--brand)' : 'var(--text)',
+              borderBottom: i < filteredOptions.length - 1 ? '1px solid var(--border)' : 'none',
+            }}
+          >
+            <span style={{
+              width: 15, height: 15, borderRadius: 3, flexShrink: 0,
+              border: `1.5px solid ${selected ? 'var(--brand)' : 'var(--border-2)'}`,
+              background: selected ? 'var(--brand)' : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {selected && <span style={{ color: '#fff', fontSize: 9, fontWeight: 700 }}>✓</span>}
+            </span>
+            {optionLabel(opt)}
+          </div>
+        )
+      })}
+      {filteredOptions.length === 0 && (
+        <div style={{ padding: 12, color: 'var(--muted)', fontSize: 12 }}>{emptyMessage}</div>
+      )}
+    </div>
   )
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
@@ -59,55 +138,7 @@ export default function MultiSelectDropdown({
         <span style={{ fontSize: 9, color: 'var(--muted)', flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
       </button>
 
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 9999,
-          borderRadius: 'var(--radius)', boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
-          maxHeight: 220, overflowY: 'auto',
-        }}>
-          <div style={{ padding: 8, position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1, borderBottom: '1px solid var(--border)' }}>
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search code or description..."
-              autoFocus
-              style={{ fontSize: 12, padding: '7px 9px' }}
-            />
-          </div>
-          {filteredOptions.map((opt, i) => {
-            const selectedValue = optionValue(opt)
-            const selected = value.includes(selectedValue)
-            return (
-              <div
-                key={selectedValue}
-                onMouseDown={(e) => { e.preventDefault(); toggle(opt) }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '9px 12px', cursor: 'pointer', fontSize: 13,
-                  background: selected ? 'var(--brand-light)' : 'transparent',
-                  color: selected ? 'var(--brand)' : 'var(--text)',
-                  borderBottom: i < filteredOptions.length - 1 ? '1px solid var(--border)' : 'none',
-                  transition: 'background .1s',
-                }}
-              >
-                <span style={{
-                  width: 15, height: 15, borderRadius: 3, flexShrink: 0,
-                  border: `1.5px solid ${selected ? 'var(--brand)' : 'var(--border-2)'}`,
-                  background: selected ? 'var(--brand)' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {selected && <span style={{ color: '#fff', fontSize: 9, fontWeight: 700, lineHeight: 1 }}>✓</span>}
-                </span>
-                {optionLabel(opt)}
-              </div>
-            )
-          })}
-          {filteredOptions.length === 0 && (
-            <div style={{ padding: 12, color: 'var(--muted)', fontSize: 12 }}>{emptyMessage}</div>
-          )}
-        </div>
-      )}
+      {createPortal(dropdown, document.body)}
 
       {value.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
