@@ -130,6 +130,22 @@ def _validate_required_onboarding_documents(onboarding):
     return errors
 
 
+def _entity_type_for_onboarding(onboarding):
+    onboarding_type = str(getattr(onboarding, 'onboarding_type', '') or '').strip().upper()
+    if onboarding_type == 'VENDOR':
+        return 'Vendor'
+    if onboarding_type == 'CUSTOMER':
+        return 'Customer'
+
+    onboarding_code = str(getattr(onboarding, 'onboarding_code', '') or '').strip().upper()
+    if onboarding_code.startswith('V'):
+        return 'Vendor'
+    if onboarding_code.startswith('C'):
+        return 'Customer'
+
+    return 'Business Partner'
+
+
 PAN_APPROVAL_PENDING = 'pending'
 PAN_APPROVAL_VALID_OPERATIVE = 'valid_operative'
 PAN_APPROVAL_VALID_INOPERATIVE = 'valid_inoperative'
@@ -553,7 +569,7 @@ class ValidateTokenView(APIView):
 
         data = OnboardingTokenSerializer(tok).data
         data['onboarding_type'] = tok.onboarding.onboarding_type
-        data['entity_type'] = tok.onboarding.get_onboarding_type_display()
+        data['entity_type'] = _entity_type_for_onboarding(tok.onboarding)
         return Response(data)
 
 
