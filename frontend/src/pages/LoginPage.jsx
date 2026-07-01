@@ -39,7 +39,7 @@ export default function LoginPage() {
       <div className="login-brand">
         <img src="/radico-logo.png" alt="Radico Khaitan" className="login-brand-logo" />
         <div className="login-brand-divider" />
-        <div className="login-brand-tag">Vendor Onboarding Portal</div>
+        <div className="login-brand-tag">Business Partner Onboarding Portal</div>
         <p className="login-brand-desc">
           Digitizing the onboarding journey for vendors and customers across India.
         </p>
