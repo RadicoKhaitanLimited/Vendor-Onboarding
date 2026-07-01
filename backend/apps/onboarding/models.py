@@ -231,6 +231,8 @@ class VendorReferenceMaster(models.Model):
     gl_account_description = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    group_code = models.CharField(max_length=20, blank=True, default='')
+    nr_group = models.CharField(max_length=10, blank=True, default='')
 
     class Meta:
         db_table = 'vendor_reference_masters'
