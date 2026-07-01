@@ -34,4 +34,4 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
         to=[to_email],
     )
     email.attach_alternative(html_body, 'text/html')
-    email.send(fail_silently=False)
+    email.send(fail_silently=True)
