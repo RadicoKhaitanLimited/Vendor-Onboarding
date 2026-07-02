@@ -145,6 +145,7 @@ export default function OnboardingFormPage() {
   }, [token])
 
   const entityType = getEntityType(tokenData)
+  const registrationTitle = `${entityType} Registration`
   const isApproved = tokenData?.onboarding?.status === 'APPROVED'
   const hasDocument = (docType, nextFiles = files) => Boolean(nextFiles[docType] || tokenData?.onboarding?.documents?.some((doc) => doc.document_type === docType))
 
@@ -430,7 +431,7 @@ export default function OnboardingFormPage() {
 
       <div className="page">
         <div className="page-header">
-          <h1>{entityType} Registration</h1>
+          <h1>{registrationTitle}</h1>
           <p>Complete all sections to register as a {entityType.toLowerCase()}. Starred fields are mandatory.</p>
         </div>
 
