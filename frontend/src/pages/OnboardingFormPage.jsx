@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router-dom'
 import axios from 'axios'
 import MultiEntryField from '../components/MultiEntryField'
 import FileUploadField from '../components/FileUploadField'
@@ -38,8 +38,9 @@ function validatePanGst(pan, gst) {
   return gst.substring(2, 12).toUpperCase() === pan.toUpperCase() ? 'match' : 'no-match'
 }
 
-function getEntityType(tokenPayload) {
+function getEntityType(tokenPayload, search = '') {
   const onboarding = tokenPayload?.onboarding
+  const queryType = new URLSearchParams(search).get('type')
   const code = String(onboarding?.onboarding_code || tokenPayload?.onboarding_code || '').trim().toUpperCase()
   if (code.startsWith('V')) return 'Vendor'
   if (code.startsWith('C')) return 'Customer'
@@ -48,6 +49,7 @@ function getEntityType(tokenPayload) {
     onboarding?.onboarding_type ||
     tokenPayload?.onboarding_type ||
     tokenPayload?.entity_type ||
+    queryType ||
     ''
   ).trim().toUpperCase()
   if (type === 'VENDOR') return 'Vendor'
@@ -60,6 +62,7 @@ function getEntityType(tokenPayload) {
 
 export default function OnboardingFormPage() {
   const { token } = useParams()
+  const location = useLocation()
   const [tokenData, setTokenData] = useState(null)
   const [tokenError, setTokenError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -144,7 +147,7 @@ export default function OnboardingFormPage() {
       .finally(() => setLoading(false))
   }, [token])
 
-  const entityType = getEntityType(tokenData)
+  const entityType = getEntityType(tokenData, location.search)
   const registrationTitle = `${entityType} Registration`
   const isApproved = tokenData?.onboarding?.status === 'APPROVED'
   const hasDocument = (docType, nextFiles = files) => Boolean(nextFiles[docType] || tokenData?.onboarding?.documents?.some((doc) => doc.document_type === docType))

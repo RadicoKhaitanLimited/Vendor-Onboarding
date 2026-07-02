@@ -28,7 +28,7 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
     entity_type = _entity_type_for_onboarding(onboarding)
     registration_title = f"{entity_type} Registration"
 
-    form_url = f"{settings.FRONTEND_URL}/onboarding/{token}"
+    form_url = f"{settings.FRONTEND_URL}/onboarding/{token}?type={entity_type.lower()}"
 
     subject = f"Radico Khaitan - {registration_title} Invitation"
 
