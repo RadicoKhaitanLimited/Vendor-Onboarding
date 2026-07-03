@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
-import axios from 'axios'
+import { publicApi } from '../api/axios'
 import MultiEntryField from '../components/MultiEntryField'
 import FileUploadField from '../components/FileUploadField'
 import { MSME_REGISTERED_OPTIONS, formatMsmeOption, normalizeMsmeCode } from '../constants/msme'
@@ -106,7 +106,7 @@ export default function OnboardingFormPage() {
   const [files, setFiles] = useState({ PAN: null, GST: null, CHEQUE: null, MSME: null })
 
   useEffect(() => {
-    axios.get(`/api/v1/onboarding/form/${token}/`)
+    publicApi.get(`/onboarding/form/${token}/`)
       .then(({ data }) => {
         setTokenData(data)
         const ob = data.onboarding
@@ -280,7 +280,7 @@ export default function OnboardingFormPage() {
   // ── Save draft ──
   const saveDraft = async () => {
     try {
-      await axios.put(`/api/v1/onboarding/form/${token}/submit/`, buildPayload())
+      await publicApi.put(`/onboarding/form/${token}/submit/`, buildPayload())
     } catch {}
   }
 
@@ -351,9 +351,7 @@ export default function OnboardingFormPage() {
     const fd = new FormData()
     fd.append('document_type', docType)
     fd.append('file', file)
-    await axios.post(`/api/v1/documents/upload/${token}/`, fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    await publicApi.post(`/documents/upload/${token}/`, fd)
   }
 
   // ── Final submit ──
@@ -370,7 +368,7 @@ export default function OnboardingFormPage() {
         uploadFile('CHEQUE', files.CHEQUE),
         form.msme_applicable && uploadFile('MSME', files.MSME),
       ])
-      await axios.post(`/api/v1/onboarding/form/${token}/submit/`, buildPayload())
+      await publicApi.post(`/onboarding/form/${token}/submit/`, buildPayload())
       setSubmitted(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
