@@ -254,8 +254,91 @@ class OnboardingListView(APIView):
         return Response(serializer.data)
 
 
+def _fmt_dt(value):
+    return timezone.localtime(value).strftime('%d-%m-%Y %H:%M') if value else ''
+
+
+def _fmt_date(value):
+    return value.isoformat() if value else ''
+
+
+def _yes_no(value):
+    return 'Yes' if value else 'No'
+
+
 class OnboardingExportView(APIView):
     permission_classes = [IsAdmin]
+
+    COLUMNS = [
+        ('Code', lambda o: o.onboarding_code),
+        ('Type', lambda o: o.get_onboarding_type_display()),
+        ('Status', lambda o: o.get_status_display()),
+
+        # Company
+        ('Company Name', lambda o: o.company_name),
+        ('Contact Person', lambda o: o.contact_person),
+        ('Email Address(es)', lambda o: ', '.join(o.emails or [])),
+        ('Phone Number(s)', lambda o: ', '.join(o.phones or [])),
+        ('Date of Birth/Commencement', lambda o: _fmt_date(o.date_of_birth)),
+
+        # Address
+        ('District', lambda o: o.district),
+        ('City', lambda o: o.city),
+        ('State', lambda o: o.state),
+        ('PIN Code', lambda o: o.pincode),
+        ('Country', lambda o: o.country),
+        ('Street 1', lambda o: o.street1),
+        ('Street 2', lambda o: o.street2),
+        ('Street 3', lambda o: o.street3),
+        ('Street 4', lambda o: o.street4),
+
+        # Tax
+        ('PAN Number', lambda o: o.pan_number),
+        ('PAN Verified', lambda o: _yes_no(o.pan_verified)),
+        ('PAN Verification Status', lambda o: o.pan_verification_status or ''),
+        ('GST Applicable', lambda o: _yes_no(o.gst_applicable)),
+        ('GST Number', lambda o: o.gst_number),
+        ('GST Verified', lambda o: _yes_no(o.gst_verified)),
+        ('GST Verification Status', lambda o: o.gst_verification_status or ''),
+
+        # Bank
+        ('Account Holder Name', lambda o: o.account_holder_name),
+        ('Bank Name', lambda o: o.bank_name),
+        ('Branch Name', lambda o: o.branch_name),
+        ('Account Number', lambda o: o.account_number),
+        ('IFSC Code', lambda o: o.ifsc_code),
+
+        # MSME
+        ('MSME Applicable', lambda o: _yes_no(o.msme_applicable)),
+        ('MSME Status', lambda o: o.get_msme_status_display()),
+        ('MSME Category', lambda o: o.get_msme_category_display() if o.msme_category else ''),
+        ('Udyam Number', lambda o: o.udyam_number),
+
+        # SAP / ERP Reference
+        ('Vendor Reference Code', lambda o: o.reference_vendor_code),
+        ('Vendor Reference Range', lambda o: o.vendor_reference_range),
+        ('Reference Name', lambda o: o.reference_name),
+        ('GL Account Number', lambda o: o.gl_account_number),
+        ('GL Account Description', lambda o: o.gl_account_description),
+        ('Reference Purchase Orgs', lambda o: ', '.join(o.reference_purchase_orgs or [])),
+        ('Purchase Org(s) to Open', lambda o: o.purchase_orgs_to_open),
+        ('Search Term', lambda o: o.search_term),
+        ('Company Code to Open', lambda o: o.company_code_to_open),
+        ('Payment Terms', lambda o: o.payment_terms),
+        ('TDS Codes', lambda o: o.tds_codes),
+
+        # Documents
+        ('Documents Uploaded', lambda o: ', '.join(sorted({d.document_type for d in o.documents.all()}))),
+
+        # Workflow
+        ('Created By', lambda o: o.created_by.email if o.created_by_id else ''),
+        ('Assigned User', lambda o: o.assigned_user.email if o.assigned_user_id else ''),
+        ('Approved By', lambda o: o.approved_by.email if o.approved_by_id else ''),
+        ('Approved At', lambda o: _fmt_dt(o.approved_at)),
+        ('Remarks', lambda o: o.remarks),
+        ('Created Date', lambda o: _fmt_dt(o.created_at)),
+        ('Updated Date', lambda o: _fmt_dt(o.updated_at)),
+    ]
 
     def get(self, request):
         try:
@@ -263,40 +346,24 @@ class OnboardingExportView(APIView):
         except ValueError as error:
             return Response(error.args[0], status=status.HTTP_400_BAD_REQUEST)
 
+        queryset = queryset.prefetch_related('documents')
+
         from openpyxl import Workbook
         from openpyxl.styles import Font
 
         workbook = Workbook()
         worksheet = workbook.active
         worksheet.title = 'Onboardings'
-        worksheet.append([
-            'Code', 'Type', 'Company Name', 'Contact Person', 'Email Address(es)',
-            'Phone Number(s)', 'Date of Birth/Commencement', 'PAN Number',
-            'GST Number', 'Status', 'Created Date',
-        ])
+        worksheet.append([header for header, _ in self.COLUMNS])
 
         for onboarding in queryset:
-            worksheet.append([
-                onboarding.onboarding_code,
-                onboarding.get_onboarding_type_display(),
-                onboarding.company_name,
-                onboarding.contact_person,
-                ', '.join(onboarding.emails or []),
-                ', '.join(onboarding.phones or []),
-                onboarding.date_of_birth.isoformat() if onboarding.date_of_birth else '',
-                onboarding.pan_number,
-                onboarding.gst_number,
-                onboarding.get_status_display(),
-                timezone.localtime(onboarding.created_at).strftime('%d-%m-%Y %H:%M'),
-            ])
+            worksheet.append([getter(onboarding) for _, getter in self.COLUMNS])
 
-        for column, width in {
-            'A': 14, 'B': 12, 'C': 30, 'D': 24, 'E': 32, 'F': 22,
-            'G': 28, 'H': 16, 'I': 18, 'J': 16, 'K': 20,
-        }.items():
-            worksheet.column_dimensions[column].width = width
+        for index in range(1, len(self.COLUMNS) + 1):
+            worksheet.column_dimensions[worksheet.cell(row=1, column=index).column_letter].width = 22
         for cell in worksheet[1]:
             cell.font = Font(bold=True)
+        worksheet.freeze_panes = 'A2'
 
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
