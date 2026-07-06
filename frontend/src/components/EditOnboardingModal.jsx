@@ -731,10 +731,10 @@ export default function EditOnboardingModal({
 
   <button
     type="button"
-    className="btn btn-secondary"
+    className="btn btn-verify"
     onClick={handleVerifyPan}
   >
-    Verify PAN
+    ✓ Verify PAN
   </button>
   </div>
 
@@ -882,11 +882,11 @@ export default function EditOnboardingModal({
       />
       <button
         type="button"
-        className="btn btn-secondary"
+        className="btn btn-verify"
         onClick={handleVerifyGst}
         disabled={gstLoading}
       >
-        {gstLoading ? 'Verifying…' : 'Verify GST'}
+        {gstLoading ? 'Verifying…' : '✓ Verify GST'}
       </button>
     </div>
 

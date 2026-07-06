@@ -442,6 +442,17 @@ input:read-only, select:disabled { background: var(--bg); color: var(--muted); c
 .btn-secondary:hover { background: var(--bg); color: var(--text); }
 .btn-outline { background: none; color: var(--brand); border: 1.5px solid var(--brand); }
 .btn-outline:hover { background: var(--brand-light); }
+.btn-verify {
+  background: linear-gradient(180deg, #FFFCF5 0%, #FDF6E3 100%);
+  color: #A07E24; border: 1.5px solid #E6CD82;
+  box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 6px 14px rgba(184,145,42,.1);
+}
+.btn-verify:hover:not(:disabled) {
+  background: linear-gradient(135deg, #B8912A 0%, #D4AF37 100%);
+  color: #fff; border-color: #B8912A;
+  box-shadow: 0 1px 0 rgba(255,255,255,.32) inset, 0 10px 22px rgba(201,168,76,.3);
+}
+.btn-verify:disabled { opacity: .55; cursor: not-allowed; }
 .btn-danger { background: var(--danger); color: #fff; }
 .btn-danger:hover { background: #991B1B; }
 .btn-success { background: var(--success); color: #fff; }
