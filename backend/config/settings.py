@@ -5,13 +5,24 @@ from decouple import config
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def config_list(name, default=''):
+    return [item.strip() for item in config(name, default=default).split(',') if item.strip()]
+
+
 def config_bool(value):
     return str(value).strip().lower() in {'1', 'true', 'yes', 'on', 'debug', 'development', 'dev'}
 
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 DEBUG = config('DEBUG', default=True, cast=config_bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = config_list(
+    'ALLOWED_HOSTS',
+    default='localhost,127.0.0.1,vendor-onboarding-production-816c.up.railway.app'
+)
+
+railway_public_domain = config('RAILWAY_PUBLIC_DOMAIN', default='')
+if railway_public_domain and railway_public_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(railway_public_domain)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -33,9 +44,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -143,10 +154,10 @@ SIMPLE_JWT = {
 }
 
 # ── CORS ─────────────────────────────────────────────────────────
-CORS_ALLOWED_ORIGINS = config(
+CORS_ALLOWED_ORIGINS = config_list(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:5173,http://127.0.0.1:5173'
-).split(',')
+    default='http://localhost:5173,http://127.0.0.1:5173,https://vendor-onboarding-liart.vercel.app'
+)
 CORS_ALLOW_CREDENTIALS = True
 
 # ── Email (SMTP) ─────────────────────────────────────────────────
@@ -172,10 +183,10 @@ SANDBOX_API_SECRET = config("SANDBOX_API_SECRET")
 ANTHROPIC_API_KEY = config("ANTHROPIC_API_KEY")
 
 
-CSRF_TRUSTED_ORIGINS = config(
+CSRF_TRUSTED_ORIGINS = config_list(
     'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:5173'
-).split(',')
+    default='http://localhost:5173,https://vendor-onboarding-liart.vercel.app'
+)
 
 API_CLIENT_ID = config("API_CLIENT_ID")
 API_TENANT_ID = config("API_TENANT_ID")
