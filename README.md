@@ -267,3 +267,4 @@ DRAFT → PENDING → UNDER_REVIEW → APPROVED
 4. Run `npm run build` and serve `dist/` with Nginx
 5. Use environment variables for all secrets (never commit `.env`)
 6. Configure `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS` for your domain
+"# Job-Portal-" 
