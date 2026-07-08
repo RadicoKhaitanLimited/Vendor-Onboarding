@@ -292,10 +292,10 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal-panel edit-panel">
+      <div className="modal-panel edit-panel manual-onboarding-panel">
 
         {/* ── Header ── */}
-        <div className="modal-header">
+        <div className="modal-header manual-modal-header">
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Manual Onboarding</div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
@@ -306,12 +306,12 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {/* ── Type Selector ── */}
-        <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card manual-card manual-type-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title">
             <div className="card-title-icon">🏷️</div>Registration Type
             <span className="req" style={{ marginLeft: 4 }}>*</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="manual-type-grid">
             {[
               { type: 'VENDOR',   label: 'Vendor',   desc: 'Supplier / manufacturer providing goods or services', color: '#4338CA', bg: '#EEF2FF', border: '#C7D2FE' },
               { type: 'CUSTOMER', label: 'Customer',  desc: 'Buyer / distributor purchasing goods or services',    color: '#15803D', bg: '#DCFCE7', border: '#A7F3C5' },
@@ -320,17 +320,17 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                 key={type}
                 type="button"
                 onClick={() => set('onboarding_type', type)}
+                className={`manual-type-option ${form.onboarding_type === type ? 'selected' : ''}`}
                 style={{
-                  padding: '1rem 1.25rem', borderRadius: 'var(--radius-lg)', cursor: 'pointer',
-                  border: `2px solid ${form.onboarding_type === type ? color : 'var(--border-2)'}`,
-                  background: form.onboarding_type === type ? bg : 'var(--surface)',
-                  textAlign: 'left', transition: 'all .15s',
+                  '--option-color': color,
+                  '--option-bg': bg,
+                  '--option-border': border,
                 }}
               >
-                <div style={{ fontWeight: 700, fontSize: 14, color: form.onboarding_type === type ? color : 'var(--text)', marginBottom: 4 }}>
+                <div className="manual-type-label">
                   {label}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{desc}</div>
+                <div className="manual-type-desc">{desc}</div>
               </button>
             ))}
           </div>
@@ -338,7 +338,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {/* ── Company & Contact ── */}
-        <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card manual-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏢</div>Company & Contact</div>
           <div className="grid-2">
             <div className="field span-2">
@@ -366,7 +366,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {/* ── Address ── */}
-        <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card manual-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">📍</div>Registered Address</div>
           <div className="grid-2">
             <div className="field">
@@ -419,7 +419,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {/* ── Tax & Compliance ── */}
-        <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card manual-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏛️</div>Tax & Compliance</div>
           <div className="grid-2">
             <div className="field span-2">
@@ -470,7 +470,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {/* ── Bank Account ── */}
-        <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card manual-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏦</div>Bank Account Details</div>
           <div className="grid-2">
             <div className="field span-2">
@@ -512,7 +512,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {/* ── MSME ── */}
-        <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card manual-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏅</div>MSME Status</div>
           <div className="field" style={{ marginBottom: '1rem' }}>
             <label>MSME Registered? <span className="req">*</span></label>
@@ -554,7 +554,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {/* ── SAP / ERP Reference Details ── */}
-        <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card manual-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🔗</div>SAP / ERP Reference Details</div>
           <div className="grid-2">
             <VendorReferenceLookupFields
@@ -600,7 +600,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {/* ── Documents ── */}
-        <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card manual-card manual-documents-card" style={{ marginBottom: '1rem' }}>
             <div className="card-title">
               <div className="card-title-icon">📎</div>Documents
               <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto', fontWeight: 400 }}>
@@ -655,7 +655,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {/* ── Footer ── */}
-        <div style={{
+        <div className="manual-modal-footer" style={{
           display: 'flex', gap: 8, justifyContent: 'flex-end',
           paddingTop: '1rem', paddingBottom: '0.5rem',
           borderTop: '1px solid var(--border)',

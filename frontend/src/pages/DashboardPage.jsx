@@ -230,12 +230,12 @@ export default function DashboardPage() {
 
   return (
     <>
-      <header>
+      <header className="app-header">
         <div className="logo">
           <img src="/radico-logo.png" alt="Radico Khaitan" className="logo-img" />
         </div>
         <nav className="header-nav">
-          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', padding: '6px 10px' }}>
+          <span className="nav-user">
             {user?.full_name || user?.email}
           </span>
           {user?.is_superuser && (
@@ -247,7 +247,8 @@ export default function DashboardPage() {
       </header>
 
       <div className="page dashboard-page">
-        <div className="page-header dashboard-page-header">
+        <div className="dashboard-hero">
+          <div className="page-header dashboard-page-header">
           <div>
             <h1>Onboarding Dashboard</h1>
             <p>
@@ -260,10 +261,10 @@ export default function DashboardPage() {
 
         <div className="dashboard-actions dashboard-actions-top">
           <div className="dashboard-actions-left">
-            <button className="btn btn-secondary" onClick={() => setShowManualModal(true)}>
+            <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowManualModal(true)}>
               Manual Onboarding
             </button>
-            <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+            <button className="btn btn-primary dashboard-action-btn dashboard-primary-action" onClick={() => setShowCreateModal(true)}>
               Generate Onboarding Link
             </button>
           </div>
@@ -271,10 +272,11 @@ export default function DashboardPage() {
             {exporting ? 'Exporting…' : 'Export Excel'}
           </button>
         </div>
+        </div>
 
         {/* Stats */}
         <div className="dash-stats">
-          <div className="stat-card">
+          <div className="stat-card stat-total">
             <div className="stat-icon" style={{ background: '#EEF2FF', color: '#4338CA' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
@@ -285,7 +287,7 @@ export default function DashboardPage() {
             <div className="stat-value">{stats.total ?? '—'}</div>
             <div className="stat-sub">V:{stats.vendor ?? 0} · C:{stats.customer ?? 0}</div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card stat-pending">
             <div className="stat-icon" style={{ background: '#FEF9C3', color: '#D97706' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -295,7 +297,7 @@ export default function DashboardPage() {
             <div className="stat-value" style={{ color: '#854D0E' }}>{stats.pending ?? '—'}</div>
             <div className="stat-sub">Awaiting action</div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card stat-approved">
             <div className="stat-icon" style={{ background: '#DCFCE7', color: '#166534' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
@@ -305,7 +307,7 @@ export default function DashboardPage() {
             <div className="stat-value" style={{ color: '#166534' }}>{stats.approved ?? '—'}</div>
             <div className="stat-sub">Active registrations</div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card stat-msme">
             <div className="stat-icon" style={{ background: 'var(--mna-bg)', color: 'var(--mna)' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
@@ -319,11 +321,11 @@ export default function DashboardPage() {
 
         {/* Table */}
         <div className="table-wrap">
-          <div className="table-header">
+          <div className="table-header registration-table-header">
             <div className="table-title">{user?.is_superuser ? 'All Registrations' : 'My Registrations'}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="registration-filter-bar">
               <div className="search-box">
-                <span>🔍</span>
+                <span className="search-icon" aria-hidden="true"></span>
                 <input
                   type="text"
                   placeholder="Search name, code, PAN..."
@@ -332,7 +334,7 @@ export default function DashboardPage() {
                 />
               </div>
               <select
-                style={{ padding: '6px 12px', fontSize: 13, borderRadius: 'var(--radius)', border: '1.5px solid var(--border-2)', background: 'var(--bg)', fontFamily: 'var(--font)' }}
+                className="filter-select"
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
               >
@@ -341,7 +343,7 @@ export default function DashboardPage() {
                 <option value="CUSTOMER">Customer</option>
               </select>
               <select
-                style={{ padding: '6px 12px', fontSize: 13, borderRadius: 'var(--radius)', border: '1.5px solid var(--border-2)', background: 'var(--bg)', fontFamily: 'var(--font)' }}
+                className="filter-select"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -352,27 +354,25 @@ export default function DashboardPage() {
                 <option value="APPROVED">Approved</option>
                 <option value="REJECTED">Rejected</option>
               </select>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
-                Created from
+              <label className="date-filter">
+                <span>Created from</span>
                 <input
                   type="date"
                   aria-label="Created from date"
-                  style={{ padding: '6px 10px', fontSize: 13, borderRadius: 'var(--radius)', border: '1.5px solid var(--border-2)', background: 'var(--bg)', fontFamily: 'var(--font)' }}
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
-                Created to
+              <label className="date-filter">
+                <span>Created to</span>
                 <input
                   type="date"
                   aria-label="Created to date"
-                  style={{ padding: '6px 10px', fontSize: 13, borderRadius: 'var(--radius)', border: '1.5px solid var(--border-2)', background: 'var(--bg)', fontFamily: 'var(--font)' }}
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                 />
               </label>
-              <button className="btn btn-secondary" onClick={handlePanExport} disabled={panExporting}>
+              <button className="btn btn-secondary filter-export-btn" onClick={handlePanExport} disabled={panExporting}>
                 {panExporting ? 'Exporting…' : 'Export PAN Data'}
               </button>
             </div>
