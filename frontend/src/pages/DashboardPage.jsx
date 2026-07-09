@@ -391,13 +391,6 @@ export default function DashboardPage() {
             <div className="stat-value" style={{ color: '#B91C1C' }}>{stats.rejected ?? '—'}</div>
             <div className="stat-sub">Needs correction</div>
           </div>
-          {user?.role === 'BOSS' && (
-            <div className="stat-card stat-total">
-              <div className="stat-label">Employees</div>
-              <div className="stat-value">{stats.employees ?? '—'}</div>
-              <div className="stat-sub">Assigned to you</div>
-            </div>
-          )}
         </div>
 
         {/* Table */}
