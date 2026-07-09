@@ -10,11 +10,24 @@ from .utils.scan import scan_document
 
 
 def _can_access(user, onboarding):
-    if user.is_superuser:
+    if user.is_superuser or user.role == 'ADMIN':
         return True
-    if user.role == 'ADMIN':
+    if user.role == 'BOSS':
+        return (
+            str(onboarding.created_by_id) == str(user.id)
+            or str(onboarding.assigned_user_id) == str(user.id)
+        )
+    if user.role == 'EMPLOYEE':
         return str(onboarding.created_by_id) == str(user.id)
     return str(onboarding.assigned_user_id) == str(user.id)
+
+
+def _can_mutate_documents(user, onboarding):
+    if user.is_superuser or user.role == 'ADMIN':
+        return True
+    if user.role == 'EMPLOYEE':
+        return str(onboarding.created_by_id) == str(user.id) and onboarding.status != 'APPROVED'
+    return False
 
 
 class AdminDocumentUploadView(APIView):
@@ -28,12 +41,12 @@ class AdminDocumentUploadView(APIView):
             return None
 
     def post(self, request, onboarding_id):
-        if request.user.role != 'ADMIN':
-            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
         onboarding = self._get_onboarding(onboarding_id)
         if not onboarding:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
         if not _can_access(request.user, onboarding):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+        if not _can_mutate_documents(request.user, onboarding):
             return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = DocumentUploadSerializer(data=request.data)
@@ -53,12 +66,12 @@ class AdminDocumentUploadView(APIView):
         return Response(DocumentSerializer(doc, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, onboarding_id):
-        if request.user.role != 'ADMIN':
-            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
         onboarding = self._get_onboarding(onboarding_id)
         if not onboarding:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
         if not _can_access(request.user, onboarding):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+        if not _can_mutate_documents(request.user, onboarding):
             return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
         doc_type = request.query_params.get('type')
         if not doc_type:
@@ -108,9 +121,13 @@ class AdminDocumentListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, onboarding_id):
-        if request.user.role != 'ADMIN':
+        try:
+            onboarding = Onboarding.objects.get(pk=onboarding_id)
+        except Onboarding.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_access(request.user, onboarding):
             return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
-        docs = Document.objects.filter(onboarding_id=onboarding_id)
+        docs = Document.objects.filter(onboarding=onboarding)
         return Response(DocumentSerializer(docs, many=True, context={'request': request}).data)
     
 
@@ -119,8 +136,6 @@ class DocumentScanView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, document_id):
-        if request.user.role != 'ADMIN':
-            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
         try:
             doc = Document.objects.select_related('onboarding').get(pk=document_id)
         except Document.DoesNotExist:

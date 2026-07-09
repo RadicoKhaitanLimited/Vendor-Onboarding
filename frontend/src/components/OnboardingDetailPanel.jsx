@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 import EditOnboardingModal from './EditOnboardingModal'
 import { formatMsmeOption } from '../constants/msme'
 
 const STATUS_CLASS = {
-  DRAFT: 's-draft', PENDING: 's-pending', UNDER_REVIEW: 's-review',
+  DRAFT: 's-draft', PENDING: 's-pending', PENDING_BOSS_APPROVAL: 's-pending', UNDER_REVIEW: 's-review',
   APPROVED: 's-approved', REJECTED: 's-rejected',
 }
 const STATUS_LABEL = {
-  DRAFT: 'Draft', PENDING: 'Pending', UNDER_REVIEW: 'Under Review',
+  DRAFT: 'Draft', PENDING: 'Pending', PENDING_BOSS_APPROVAL: 'Pending Boss Approval', UNDER_REVIEW: 'Under Review',
   APPROVED: 'Approved', REJECTED: 'Rejected',
 }
 
@@ -38,9 +39,13 @@ function yesNo(value) {
 
 export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
   const toast = useToast()
+  const { user } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showEdit, setShowEdit] = useState(false)
+  const [approvalBoss, setApprovalBoss] = useState('')
+  const [sendingToBoss, setSendingToBoss] = useState(false)
+  const bossOptions = user?.role === 'EMPLOYEE' ? (user.boss_details || []) : []
 
   const loadData = () => {
     api.get(`/onboarding/${id}/`)
@@ -56,6 +61,30 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
     setLoading(true)
     loadData()
     onUpdated()
+  }
+
+  const handleSendToBoss = async () => {
+    if (!approvalBoss) {
+      toast.error('Select boss', 'Please select the boss for approval.')
+      return
+    }
+    setSendingToBoss(true)
+    try {
+      await api.post(`/onboarding/${data.id}/send-to-boss/`, { approval_boss: approvalBoss })
+      toast.success('Sent to boss', 'Request has been sent for boss approval.')
+      setApprovalBoss('')
+      setLoading(true)
+      loadData()
+      onUpdated()
+    } catch (err) {
+      const responseData = err.response?.data
+      const validationMessage = responseData && typeof responseData === 'object'
+        ? Object.values(responseData).flat().join(' ')
+        : ''
+      toast.error('Failed', validationMessage || responseData?.detail || 'Could not send request to boss.')
+    } finally {
+      setSendingToBoss(false)
+    }
   }
 
   return (
@@ -101,6 +130,24 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
           <div className="empty-state"><div className="empty-icon">⏳</div>Loading…</div>
         ) : data ? (
           <>
+            {user?.role === 'EMPLOYEE' && data.status === 'PENDING' && (
+              <div className="card" style={{ marginBottom: '1rem' }}>
+                <div className="card-title"><div className="card-title-icon">✓</div>Send For Boss Approval</div>
+                <div className="field">
+                  <label>Select Boss <span className="req">*</span></label>
+                  <select value={approvalBoss} onChange={(e) => setApprovalBoss(e.target.value)}>
+                    <option value="">Select boss</option>
+                    {bossOptions.map((boss) => (
+                      <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
+                    ))}
+                  </select>
+                </div>
+                <button className="btn btn-primary" onClick={handleSendToBoss} disabled={sendingToBoss}>
+                  {sendingToBoss ? <><div className="spinner" /> Sending...</> : 'Send to Boss'}
+                </button>
+              </div>
+            )}
+
             {/* Company */}
             <div className="card" style={{ marginBottom: '1rem' }}>
               <div className="card-title"><div className="card-title-icon">🏢</div>Company Information</div>
@@ -112,6 +159,7 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
                 <SummaryRow label="Created On" value={formatDateTime(data.created_at)} />
                 <SummaryRow label="Updated On" value={formatDateTime(data.updated_at)} />
                 <SummaryRow label="Created By" value={data.created_by_email} />
+                <SummaryRow label="Assigned Boss" value={data.assigned_boss_email} />
               </div>
             </div>
 
@@ -270,6 +318,25 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
               <div style={{ background: 'var(--success-bg)', border: '1px solid #A7F3C5', borderRadius: 'var(--radius)', padding: '1rem', marginTop: '.5rem', fontSize: 13, color: 'var(--success)' }}>
                 ✅ Approved by <strong>{data.approved_by_email}</strong> on {new Date(data.approved_at).toLocaleString('en-IN')}
                 {data.remarks && <div style={{ marginTop: 6, color: 'var(--text)' }}>Remarks: {data.remarks}</div>}
+              </div>
+            )}
+            {data.status === 'REJECTED' && data.remarks && (
+              <div style={{ background: 'var(--danger-bg)', border: '1px solid #FCA5A5', borderRadius: 'var(--radius)', padding: '1rem', marginTop: '.5rem', fontSize: 13, color: 'var(--danger)' }}>
+                Rejection Comments: {data.remarks}
+              </div>
+            )}
+            {data.approval_history?.length > 0 && (
+              <div className="card" style={{ marginTop: '1rem' }}>
+                <div className="card-title"><div className="card-title-icon">#</div>Approval History</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {data.approval_history.map((item) => (
+                    <div key={item.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
+                      <strong>{item.action}</strong>
+                      <span style={{ color: 'var(--muted)' }}> by {item.actor_name || item.actor_email || 'System'} on {new Date(item.created_at).toLocaleString('en-IN')}</span>
+                      {item.comments && <div style={{ marginTop: 4 }}>{item.comments}</div>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </>

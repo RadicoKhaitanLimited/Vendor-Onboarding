@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 import MultiEntryField from './MultiEntryField'
 import VendorReferenceLookupFields from './VendorReferenceLookupFields'
 import PaymentTermsSelect from './PaymentTermsSelect'
@@ -130,6 +131,7 @@ export default function EditOnboardingModal({
 }) {
 
   const toast = useToast()
+  const { user } = useAuth()
 
   const [saving, setSaving] = useState(false)
 
@@ -597,6 +599,8 @@ export default function EditOnboardingModal({
   }
 
   const entityType = data.onboarding_type === 'VENDOR' ? 'Vendor' : 'Customer'
+  const canApprove = ['ADMIN', 'BOSS'].includes(user?.role)
+  const canSave = user?.role === 'ADMIN' || (user?.role === 'EMPLOYEE' && data.status === 'DRAFT')
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -1191,9 +1195,9 @@ export default function EditOnboardingModal({
         </div>
 
         {/* ── Footer ── */}
-        {data.status !== 'APPROVED' && (
+        {canApprove && data.status !== 'APPROVED' && (
           <div className="card" style={{ marginBottom: '1rem' }}>
-            <div className="card-title"><div className="card-title-icon">⚙️</div>Admin Actions</div>
+            <div className="card-title"><div className="card-title-icon">⚙️</div>Approval Actions</div>
 
             <div className="field" style={{ marginBottom: '1rem' }}>
               <label>Remarks</label>
@@ -1213,9 +1217,11 @@ export default function EditOnboardingModal({
               <button className="btn btn-danger" onClick={handleReject} disabled={!!actionLoading || saving}>
                 {actionLoading === 'reject' ? <><div className="spinner" style={{ borderTopColor: '#fff' }} />Rejecting…</> : '❌ Reject'}
               </button>
-              <button className="btn btn-secondary" onClick={handleResend} disabled={!!actionLoading || saving}>
-                {actionLoading === 'resend' ? 'Sending…' : '✉️ Resend Invite'}
-              </button>
+              {user?.role === 'ADMIN' && (
+                <button className="btn btn-secondary" onClick={handleResend} disabled={!!actionLoading || saving}>
+                  {actionLoading === 'resend' ? 'Sending…' : 'Resend Invite'}
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -1227,12 +1233,14 @@ export default function EditOnboardingModal({
           position: 'sticky', bottom: 0, background: 'var(--surface)',
         }}>
           <button className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+          {canSave && (
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
             {saving
               ? <><div className="spinner" style={{ borderTopColor: '#fff' }} />Saving…</>
               : 'Save Changes'
             }
           </button>
+          )}
         </div>
 
       </div>

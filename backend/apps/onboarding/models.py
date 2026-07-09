@@ -74,6 +74,7 @@ class Onboarding(models.Model):
     STATUS_CHOICES = [
         ('DRAFT', 'Draft'),
         ('PENDING', 'Pending'),
+        ('PENDING_BOSS_APPROVAL', 'Pending Boss Approval'),
         ('UNDER_REVIEW', 'Under Review'),
         ('APPROVED', 'Approved'),
         ('REJECTED', 'Rejected'),
@@ -139,7 +140,7 @@ class Onboarding(models.Model):
     tds_codes = models.CharField(max_length=255, blank=True)
 
     # Workflow
-    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='DRAFT')
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='DRAFT')
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_onboardings'
     )
@@ -194,6 +195,33 @@ class Onboarding(models.Model):
 
     def __str__(self):
         return f"{self.onboarding_code} - {self.company_name or 'Unnamed'}"
+
+
+class OnboardingApprovalHistory(models.Model):
+    ACTION_CHOICES = [
+        ('SUBMITTED', 'Submitted'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+
+    onboarding = models.ForeignKey(Onboarding, on_delete=models.CASCADE, related_name='approval_history')
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='onboarding_approval_actions',
+    )
+    comments = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'onboarding_approval_history'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.onboarding} - {self.action}"
 
 
 class OnboardingToken(models.Model):

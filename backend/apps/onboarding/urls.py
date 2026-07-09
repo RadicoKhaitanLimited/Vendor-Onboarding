@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     OnboardingListView, CreateOnboardingView, ManualOnboardingView, OnboardingDetailView,
-    ApproveOnboardingView, RejectOnboardingView, ResendInviteView,
+    ApproveOnboardingView, RejectOnboardingView, SendToBossView, ResendInviteView,
     ValidateTokenView, SubmitOnboardingView, DashboardStatsView, OnboardingExportView,
     OnboardingSingleExportView, PanDataExportView,
     VendorReferenceRangeListView, VendorReferenceMasterListCreateView,
@@ -21,6 +21,7 @@ urlpatterns = [
     path('<uuid:pk>/', OnboardingDetailView.as_view(), name='onboarding_detail'),
     path('<uuid:pk>/approve/', ApproveOnboardingView.as_view(), name='onboarding_approve'),
     path('<uuid:pk>/reject/', RejectOnboardingView.as_view(), name='onboarding_reject'),
+    path('<uuid:pk>/send-to-boss/', SendToBossView.as_view(), name='onboarding_send_to_boss'),
     path('<uuid:pk>/resend-invite/', ResendInviteView.as_view(), name='resend_invite'),
     path('form/<str:token>/', ValidateTokenView.as_view(), name='validate_token'),
     path('form/<str:token>/submit/', SubmitOnboardingView.as_view(), name='submit_onboarding'),

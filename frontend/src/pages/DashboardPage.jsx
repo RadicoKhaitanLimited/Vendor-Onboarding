@@ -10,13 +10,14 @@ import ManualOnboardingModal from '../components/ManualOnboardingModal'
 import { formatMsmeOption, normalizeMsmeCode } from '../constants/msme'
 
 const STATUS_CLASS = {
-  DRAFT: 's-draft', PENDING: 's-pending', UNDER_REVIEW: 's-review',
+  DRAFT: 's-draft', PENDING: 's-pending', PENDING_BOSS_APPROVAL: 's-pending', UNDER_REVIEW: 's-review',
   APPROVED: 's-approved', REJECTED: 's-rejected',
 }
 const STATUS_LABEL = {
-  DRAFT: 'Draft', PENDING: 'Pending', UNDER_REVIEW: 'Under Review',
+  DRAFT: 'Draft', PENDING: 'Pending', PENDING_BOSS_APPROVAL: 'Pending Boss Approval', UNDER_REVIEW: 'Under Review',
   APPROVED: 'Approved', REJECTED: 'Rejected',
 }
+const PENDING_GROUP_FILTER = 'PENDING_GROUP'
 
 const PAN_STATUS = {
   NOT_VERIFIED: 'not_verified',
@@ -105,7 +106,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(PENDING_GROUP_FILTER)
   const [typeFilter, setTypeFilter] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -166,6 +167,20 @@ export default function DashboardPage() {
     fetchData()
     setSelectedId(null)
   }
+
+  const handleStatFilterKeyDown = (event, nextStatus) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      setStatusFilter(nextStatus)
+    }
+  }
+
+  const statCardClass = (baseClass, nextStatus) => [
+    'stat-card',
+    'stat-filter-card',
+    baseClass,
+    statusFilter === nextStatus ? 'active' : '',
+  ].filter(Boolean).join(' ')
 
   const handleExport = async () => {
     if (startDate && endDate && startDate > endDate) {
@@ -267,10 +282,14 @@ export default function DashboardPage() {
           <span className="nav-user">
             {user?.full_name || user?.email}
           </span>
-          {user?.is_superuser && (
-            <button className="nav-btn" onClick={() => setShowUsersModal(true)}>Manage Users</button>
+          {(user?.is_superuser || ['ADMIN', 'BOSS'].includes(user?.role)) && (
+            <button className="nav-btn" onClick={() => setShowUsersModal(true)}>
+              {!user?.is_superuser && user?.role === 'BOSS' ? 'My Employees' : 'Manage Users'}
+            </button>
           )}
-          <Link className="nav-btn" to="/vendor-reference-master">Vendor Reference Master</Link>
+          {(user?.is_superuser || user?.role === 'ADMIN') && (
+            <Link className="nav-btn" to="/vendor-reference-master">Vendor Reference Master</Link>
+          )}
           <button className="nav-btn danger" onClick={logout}>Sign Out</button>
         </nav>
       </header>
@@ -283,7 +302,9 @@ export default function DashboardPage() {
             <p>
               {user?.is_superuser
                 ? 'All vendor and customer onboarding registrations across the organisation.'
-                : 'Your vendor and customer onboarding registrations.'}
+                : user?.role === 'BOSS'
+                  ? 'Vendor requests submitted by employees assigned to you.'
+                  : 'Your created vendor onboarding requests.'}
             </p>
           </div>
         </div>
@@ -305,7 +326,13 @@ export default function DashboardPage() {
 
         {/* Stats */}
         <div className="dash-stats">
-          <div className="stat-card stat-total">
+          <div
+            className={statCardClass('stat-total', '')}
+            role="button"
+            tabIndex={0}
+            onClick={() => setStatusFilter('')}
+            onKeyDown={(event) => handleStatFilterKeyDown(event, '')}
+          >
             <div className="stat-icon" style={{ background: '#EEF2FF', color: '#4338CA' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
@@ -316,17 +343,29 @@ export default function DashboardPage() {
             <div className="stat-value">{stats.total ?? '—'}</div>
             <div className="stat-sub">V:{stats.vendor ?? 0} · C:{stats.customer ?? 0}</div>
           </div>
-          <div className="stat-card stat-pending">
+          <div
+            className={statCardClass('stat-pending', PENDING_GROUP_FILTER)}
+            role="button"
+            tabIndex={0}
+            onClick={() => setStatusFilter(PENDING_GROUP_FILTER)}
+            onKeyDown={(event) => handleStatFilterKeyDown(event, PENDING_GROUP_FILTER)}
+          >
             <div className="stat-icon" style={{ background: '#FEF9C3', color: '#D97706' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
             </div>
-            <div className="stat-label">Pending Review</div>
+            <div className="stat-label">{user?.role === 'BOSS' ? 'Pending Boss Approval' : 'Pending Review'}</div>
             <div className="stat-value" style={{ color: '#854D0E' }}>{stats.pending ?? '—'}</div>
             <div className="stat-sub">Awaiting action</div>
           </div>
-          <div className="stat-card stat-approved">
+          <div
+            className={statCardClass('stat-approved', 'APPROVED')}
+            role="button"
+            tabIndex={0}
+            onClick={() => setStatusFilter('APPROVED')}
+            onKeyDown={(event) => handleStatFilterKeyDown(event, 'APPROVED')}
+          >
             <div className="stat-icon" style={{ background: '#DCFCE7', color: '#166534' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
@@ -336,16 +375,29 @@ export default function DashboardPage() {
             <div className="stat-value" style={{ color: '#166534' }}>{stats.approved ?? '—'}</div>
             <div className="stat-sub">Active registrations</div>
           </div>
-          <div className="stat-card stat-msme">
-            <div className="stat-icon" style={{ background: 'var(--mna-bg)', color: 'var(--mna)' }}>
+          <div
+            className={statCardClass('stat-rejected', 'REJECTED')}
+            role="button"
+            tabIndex={0}
+            onClick={() => setStatusFilter('REJECTED')}
+            onKeyDown={(event) => handleStatFilterKeyDown(event, 'REJECTED')}
+          >
+            <div className="stat-icon" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
+                <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
               </svg>
             </div>
-            <div className="stat-label">MSME Registered</div>
-            <div className="stat-value" style={{ color: 'var(--mna)' }}>{stats.msme ?? '—'}</div>
-            <div className="stat-sub">With MSME certificate</div>
+            <div className="stat-label">Rejected</div>
+            <div className="stat-value" style={{ color: '#B91C1C' }}>{stats.rejected ?? '—'}</div>
+            <div className="stat-sub">Needs correction</div>
           </div>
+          {user?.role === 'BOSS' && (
+            <div className="stat-card stat-total">
+              <div className="stat-label">Employees</div>
+              <div className="stat-value">{stats.employees ?? '—'}</div>
+              <div className="stat-sub">Assigned to you</div>
+            </div>
+          )}
         </div>
 
         {/* Table */}
@@ -377,8 +429,10 @@ export default function DashboardPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="">All Status</option>
+                <option value={PENDING_GROUP_FILTER}>All Pending</option>
                 <option value="DRAFT">Draft</option>
                 <option value="PENDING">Pending</option>
+                <option value="PENDING_BOSS_APPROVAL">Pending Boss Approval</option>
                 <option value="UNDER_REVIEW">Under Review</option>
                 <option value="APPROVED">Approved</option>
                 <option value="REJECTED">Rejected</option>

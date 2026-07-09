@@ -1,7 +1,7 @@
 import re
 from rest_framework import serializers
 from .models import (
-    Onboarding, OnboardingToken, VendorReferenceMaster,
+    Onboarding, OnboardingToken, VendorReferenceMaster, OnboardingApprovalHistory,
     VENDOR_REFERENCE_RANGES,
 )
 
@@ -80,6 +80,7 @@ def company_code_for_purchase_org(purchase_org):
 class OnboardingListSerializer(serializers.ModelSerializer):
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
     approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True)
+    assigned_boss_email = serializers.SerializerMethodField()
     document_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -88,6 +89,7 @@ class OnboardingListSerializer(serializers.ModelSerializer):
             'id', 'onboarding_code', 'onboarding_type', 'company_name',
             'contact_person', 'pan_number', 'status', 'msme_status',
             'created_at', 'updated_at', 'created_by_email', 'approved_by_email',
+            'assigned_boss_email', 'remarks',
             'document_count','date_of_birth', "pan_verified",
             "pan_verification_status",
             "gst_number", "gst_verified", "gst_verification_status",
@@ -97,11 +99,19 @@ class OnboardingListSerializer(serializers.ModelSerializer):
     def get_document_count(self, obj):
         return obj.documents.count()
 
+    def get_assigned_boss_email(self, obj):
+        if obj.assigned_user and obj.assigned_user.role == 'BOSS':
+            return obj.assigned_user.email
+        return ''
+
 
 class OnboardingDetailSerializer(serializers.ModelSerializer):
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
+    created_by_role = serializers.CharField(source='created_by.role', read_only=True)
+    assigned_boss_email = serializers.SerializerMethodField()
     approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True)
     documents = serializers.SerializerMethodField()
+    approval_history = serializers.SerializerMethodField()
 
     class Meta:
         model = Onboarding
@@ -113,6 +123,14 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
     def get_documents(self, obj):
         from apps.documents.serializers import DocumentSerializer
         return DocumentSerializer(obj.documents.all(), many=True).data
+
+    def get_assigned_boss_email(self, obj):
+        if obj.assigned_user and obj.assigned_user.role == 'BOSS':
+            return obj.assigned_user.email
+        return ''
+
+    def get_approval_history(self, obj):
+        return OnboardingApprovalHistorySerializer(obj.approval_history.select_related('actor').all(), many=True).data
 
     def validate_pan_number(self, value):
         if value and not re.match(r'^[A-Z]{5}[0-9]{4}[A-Z]$', value.upper()):
@@ -215,10 +233,20 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
 class CreateOnboardingSerializer(serializers.Serializer):
     email = serializers.EmailField()
     onboarding_type = serializers.ChoiceField(choices=['VENDOR', 'CUSTOMER'])
+    approval_boss = serializers.UUIDField(required=False, allow_null=True)
 
 
 class ApproveRejectSerializer(serializers.Serializer):
     remarks = serializers.CharField(required=False, allow_blank=True, default='')
+
+
+class OnboardingApprovalHistorySerializer(serializers.ModelSerializer):
+    actor_email = serializers.EmailField(source='actor.email', read_only=True)
+    actor_name = serializers.CharField(source='actor.full_name', read_only=True)
+
+    class Meta:
+        model = OnboardingApprovalHistory
+        fields = ['id', 'action', 'comments', 'actor_email', 'actor_name', 'created_at']
 
 
 class OnboardingTokenSerializer(serializers.ModelSerializer):

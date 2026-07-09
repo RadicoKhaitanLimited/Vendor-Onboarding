@@ -664,6 +664,15 @@ input:read-only, select:disabled { background: var(--bg); color: var(--muted); c
 .stat-card:nth-child(3) { animation-delay: 100ms; }
 .stat-card:nth-child(4) { animation-delay: 150ms; }
 .stat-card:hover { transform: translateY(-3px); border-color: rgba(203,213,225,.95); box-shadow: 0 1px 0 rgba(255,255,255,.95) inset, 0 24px 46px rgba(15,23,42,.105), 0 9px 20px rgba(15,23,42,.055); }
+.stat-filter-card { cursor: pointer; }
+.stat-filter-card:focus-visible {
+  outline: 3px solid rgba(37,99,235,.32);
+  outline-offset: 3px;
+}
+.stat-filter-card.active {
+  border-color: color-mix(in srgb, var(--stat-accent, var(--gold)) 58%, rgba(226,232,240,.95));
+  box-shadow: 0 1px 0 rgba(255,255,255,.95) inset, 0 24px 46px rgba(15,23,42,.105), 0 0 0 3px color-mix(in srgb, var(--stat-accent, var(--gold)) 18%, transparent);
+}
 .stat-icon {
   position: absolute; top: 1.45rem; right: 1.45rem;
   width: 38px; height: 38px; border-radius: 10px;
@@ -676,7 +685,7 @@ input:read-only, select:disabled { background: var(--bg); color: var(--muted); c
 .stat-total { --stat-accent: #C9A84C; --stat-tint: rgba(99,102,241,.08); --stat-value: #101828; }
 .stat-pending { --stat-accent: #D97706; --stat-tint: rgba(217,119,6,.1); --stat-value: #854D0E; }
 .stat-approved { --stat-accent: #16A34A; --stat-tint: rgba(22,163,74,.1); --stat-value: #166534; }
-.stat-msme { --stat-accent: #7E22CE; --stat-tint: rgba(126,34,206,.1); --stat-value: var(--mna); }
+.stat-rejected { --stat-accent: #DC2626; --stat-tint: rgba(220,38,38,.1); --stat-value: #B91C1C; }
 
 /* ── Table ── */
 .table-wrap {

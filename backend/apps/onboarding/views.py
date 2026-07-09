@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import (
     Onboarding, OnboardingToken, VendorReferenceMaster, PaymentTermMaster,
     PurchaseOrganizationMaster, CompanyCodeMaster, TDSCodeMaster,
-    SearchTermMaster,
+    SearchTermMaster, OnboardingApprovalHistory,
     VENDOR_REFERENCE_RANGES, get_vendor_reference_range_for_code,
 )
 from .serializers import (
@@ -21,6 +21,9 @@ from .serializers import (
 from apps.accounts.models import User
 from apps.notifications.email_service import send_onboarding_invite
 from config import settings
+
+
+PENDING_STATUS_FILTER = ['PENDING', 'PENDING_BOSS_APPROVAL', 'UNDER_REVIEW']
 
 
 def _filter_by_created_date(qs, query_params):
@@ -49,27 +52,83 @@ def _filter_by_created_date(qs, query_params):
 
 class IsAdmin(IsAuthenticated):
     def has_permission(self, request, view):
-        return super().has_permission(request, view) and request.user.role == 'ADMIN'
+        return super().has_permission(request, view) and request.user.role in ['ADMIN', 'BOSS', 'EMPLOYEE']
+
+
+class IsFullAdmin(IsAuthenticated):
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and _is_system_admin(request.user)
+
+
+class IsAdminOrBoss(IsAuthenticated):
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and (
+            request.user.is_superuser or request.user.role in ['ADMIN', 'BOSS']
+        )
+
+
+def _is_system_admin(user):
+    return bool(user.is_superuser or user.role == 'ADMIN')
 
 
 # ── Scope helpers ────────────────────────────────────────────────
 def _scoped_qs(user):
     """Onboardings visible to this user based on their role."""
-    qs = Onboarding.objects.select_related('created_by', 'approved_by').all()
-    if user.is_superuser:
+    qs = Onboarding.objects.select_related('created_by', 'approved_by', 'assigned_user').prefetch_related('created_by__bosses').all()
+    if _is_system_admin(user):
         return qs
-    if user.role == 'ADMIN':
+    if user.role == 'BOSS':
+        return qs.filter(Q(assigned_user=user) | Q(created_by=user)).distinct()
+    if user.role == 'EMPLOYEE':
         return qs.filter(created_by=user)
     return qs.filter(assigned_user=user)
 
 
 def _can_access(user, onboarding):
     """Whether user may view/edit a specific onboarding."""
-    if user.is_superuser:
+    if _is_system_admin(user):
         return True
-    if user.role == 'ADMIN':
+    if user.role == 'BOSS':
+        return (
+            str(onboarding.created_by_id) == str(user.id)
+            or str(onboarding.assigned_user_id) == str(user.id)
+        )
+    if user.role == 'EMPLOYEE':
         return str(onboarding.created_by_id) == str(user.id)
     return str(onboarding.assigned_user_id) == str(user.id)
+
+
+def _can_edit_onboarding(user, onboarding):
+    if _is_system_admin(user):
+        return True
+    if user.role in ['BOSS', 'EMPLOYEE']:
+        return _can_access(user, onboarding)
+    return False
+
+
+def _bosses_for_user(user):
+    if user.role == 'EMPLOYEE':
+        return list(user.bosses.all())
+    return []
+
+
+def _selected_approval_boss(user, data):
+    if user.role != 'EMPLOYEE':
+        return None, None
+
+    boss_id = data.get('approval_boss') or data.get('assigned_boss') or data.get('assigned_user')
+    bosses = user.bosses.all()
+    if not bosses.exists():
+        return None, {'approval_boss': ['Employee is not assigned to any boss.']}
+    if not boss_id:
+        if bosses.count() == 1:
+            return bosses.first(), None
+        return None, {'approval_boss': ['Select the boss to send this request for approval.']}
+
+    selected_boss = bosses.filter(id=boss_id).first()
+    if not selected_boss:
+        return None, {'approval_boss': ['Selected boss is not assigned to this employee.']}
+    return selected_boss, None
 
 
 def _validate_required_manual_onboarding_fields(data):
@@ -237,7 +296,11 @@ class OnboardingListView(APIView):
         # Filter by status
         status_filter = request.query_params.get('status')
         if status_filter:
-            qs = qs.filter(status=status_filter.upper())
+            normalized_status = status_filter.upper()
+            if normalized_status == 'PENDING_GROUP':
+                qs = qs.filter(status__in=PENDING_STATUS_FILTER)
+            else:
+                qs = qs.filter(status=normalized_status)
 
         # Search
         search = request.query_params.get('search', '').strip()
@@ -547,7 +610,6 @@ class ManualOnboardingView(APIView):
                 {'onboarding_type': ['Must be VENDOR or CUSTOMER.']},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         data = {**request.data, 'onboarding_type': onboarding_type}
         required_errors = _validate_required_manual_onboarding_fields(data)
         if required_errors:
@@ -561,9 +623,20 @@ class ManualOnboardingView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        assigned_boss, boss_error = _selected_approval_boss(request.user, request.data)
+        if boss_error:
+            return Response(boss_error, status=status.HTTP_400_BAD_REQUEST)
+        next_status = 'PENDING_BOSS_APPROVAL' if request.user.role == 'EMPLOYEE' else 'PENDING'
         onboarding = serializer.save(
             created_by=request.user,
-            status='PENDING',
+            assigned_user=assigned_boss,
+            status=next_status,
+        )
+        OnboardingApprovalHistory.objects.create(
+            onboarding=onboarding,
+            action='SUBMITTED',
+            actor=request.user,
+            comments='Submitted for boss approval.' if assigned_boss else 'Submitted for approval.',
         )
         return Response(OnboardingDetailSerializer(onboarding).data, status=status.HTTP_201_CREATED)
 
@@ -589,7 +662,7 @@ class CreateOnboardingView(APIView):
         onboarding = Onboarding.objects.create(
             onboarding_type=onboarding_type,
             created_by=request.user,
-            assigned_user=user,
+            assigned_user=request.user,
             emails=[email],
         )
 
@@ -634,13 +707,13 @@ class OnboardingDetailView(APIView):
         return Response(OnboardingDetailSerializer(onboarding).data)
 
     def patch(self, request, pk):
-        if request.user.role != 'ADMIN':
-            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
         onboarding = self._get_onboarding(pk)
         if not onboarding:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
         if not _can_access(request.user, onboarding):
             return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+        if not _can_edit_onboarding(request.user, onboarding):
+            return Response({'detail': 'Only admins can edit submitted records. Employees can edit only their own drafts.'}, status=status.HTTP_403_FORBIDDEN)
         serializer = OnboardingDetailSerializer(
             onboarding,
             data=request.data,
@@ -655,7 +728,7 @@ class OnboardingDetailView(APIView):
 
 # ── Admin: Approve ───────────────────────────────────────────────
 class ApproveOnboardingView(APIView):
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdminOrBoss]
 
     def post(self, request, pk):
         try:
@@ -699,12 +772,18 @@ class ApproveOnboardingView(APIView):
         onboarding.approved_at = timezone.now()
         onboarding.remarks = serializer.validated_data.get('remarks', '')
         onboarding.save()
+        OnboardingApprovalHistory.objects.create(
+            onboarding=onboarding,
+            action='APPROVED',
+            actor=request.user,
+            comments=onboarding.remarks,
+        )
         return Response(OnboardingDetailSerializer(onboarding).data)
 
 
 # ── Admin: Reject ────────────────────────────────────────────────
 class RejectOnboardingView(APIView):
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdminOrBoss]
 
     def post(self, request, pk):
         try:
@@ -721,10 +800,60 @@ class RejectOnboardingView(APIView):
         onboarding.status = 'REJECTED'
         onboarding.remarks = serializer.validated_data.get('remarks', '')
         onboarding.save()
+        OnboardingApprovalHistory.objects.create(
+            onboarding=onboarding,
+            action='REJECTED',
+            actor=request.user,
+            comments=onboarding.remarks,
+        )
         return Response(OnboardingDetailSerializer(onboarding).data)
 
 
 # ── Admin: Re-send invite ────────────────────────────────────────
+class SendToBossView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request, pk):
+        try:
+            onboarding = Onboarding.objects.get(pk=pk)
+        except Onboarding.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.user.role != 'EMPLOYEE' or str(onboarding.created_by_id) != str(request.user.id):
+            return Response({'detail': 'Only the employee who created this request can send it to a boss.'}, status=status.HTTP_403_FORBIDDEN)
+        if onboarding.status == 'APPROVED':
+            return Response({'detail': 'Approved onboarding cannot be sent for approval again.'}, status=status.HTTP_400_BAD_REQUEST)
+        if onboarding.status == 'PENDING_BOSS_APPROVAL':
+            return Response({'detail': 'This request has already been sent to a boss.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        assigned_boss, boss_error = _selected_approval_boss(request.user, request.data)
+        if boss_error:
+            return Response(boss_error, status=status.HTTP_400_BAD_REQUEST)
+
+        detail_serializer = OnboardingDetailSerializer(
+            onboarding,
+            data={},
+            partial=True,
+            context={'require_complete': True},
+        )
+        if not detail_serializer.is_valid():
+            return Response(detail_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        document_errors = _validate_required_onboarding_documents(onboarding)
+        if document_errors:
+            return Response(document_errors, status=status.HTTP_400_BAD_REQUEST)
+
+        onboarding.assigned_user = assigned_boss
+        onboarding.status = 'PENDING_BOSS_APPROVAL'
+        onboarding.save(update_fields=['assigned_user', 'status', 'updated_at'])
+        OnboardingApprovalHistory.objects.create(
+            onboarding=onboarding,
+            action='SUBMITTED',
+            actor=request.user,
+            comments=f'Sent to {assigned_boss.email} for boss approval.',
+        )
+        return Response(OnboardingDetailSerializer(onboarding).data)
+
+
 class ResendInviteView(APIView):
     permission_classes = [IsAdmin]
 
@@ -814,7 +943,13 @@ class SubmitOnboardingView(APIView):
         )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        instance = serializer.save(status='PENDING')
+        instance = serializer.save(status='PENDING', assigned_user=onboarding.created_by)
+        OnboardingApprovalHistory.objects.create(
+            onboarding=instance,
+            action='SUBMITTED',
+            actor=None,
+            comments='Submitted by vendor/customer to the link sender for review.',
+        )
         document_errors = _validate_required_onboarding_documents(instance)
         if document_errors:
             return Response(document_errors, status=status.HTTP_400_BAD_REQUEST)
@@ -839,12 +974,13 @@ class DashboardStatsView(APIView):
 
         stats = {
             'total':    qs.count(),
-            'pending':  qs.filter(status__in=['PENDING', 'UNDER_REVIEW']).count(),
+            'pending':  qs.filter(status__in=PENDING_STATUS_FILTER).count(),
             'approved': qs.filter(status='APPROVED').count(),
             'rejected': qs.filter(status='REJECTED').count(),
             'msme':     qs.filter(msme_applicable=True).count(),
             'vendor':   base.filter(onboarding_type='VENDOR').count(),
             'customer': base.filter(onboarding_type='CUSTOMER').count(),
+            'employees': request.user.employees.count() if request.user.role == 'BOSS' else 0,
         }
         return Response(stats)
 
@@ -939,7 +1075,7 @@ class SearchTermListView(APIView):
 
 
 class VendorReferenceMasterListCreateView(APIView):
-    permission_classes = [IsAdmin]
+    permission_classes = [IsFullAdmin]
 
     def get(self, request):
         qs = VendorReferenceMaster.objects.all()
@@ -964,7 +1100,7 @@ class VendorReferenceMasterListCreateView(APIView):
 
 
 class VendorReferenceMasterDetailView(APIView):
-    permission_classes = [IsAdmin]
+    permission_classes = [IsFullAdmin]
 
     def _get_master(self, pk):
         try:

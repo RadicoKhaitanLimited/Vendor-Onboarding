@@ -16,7 +16,15 @@ function AdminRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return null
   if (!user) return <Navigate to="/login" replace />
-  if (user.role !== 'ADMIN') return <Navigate to="/login" replace />
+  if (!['ADMIN', 'BOSS', 'EMPLOYEE'].includes(user.role)) return <Navigate to="/login" replace />
+  return children
+}
+
+function FullAdminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role !== 'ADMIN') return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -39,9 +47,9 @@ export default function App() {
             <Route
               path="/vendor-reference-master"
               element={
-                <AdminRoute>
+                <FullAdminRoute>
                   <VendorReferenceMasterPage />
-                </AdminRoute>
+                </FullAdminRoute>
               }
             />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

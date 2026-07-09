@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 import MultiEntryField from './MultiEntryField'
 import VendorReferenceLookupFields from './VendorReferenceLookupFields'
 import PaymentTermsSelect from './PaymentTermsSelect'
@@ -77,22 +78,26 @@ const EMPTY_FORM = {
   company_code_to_open:    '',
   payment_terms:           '',
   tds_codes:               '',
+  approval_boss:           '',
 }
 
 export default function ManualOnboardingModal({ onClose, onCreated }) {
   const toast = useToast()
+  const { user } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [files, setFiles] = useState({ PAN: null, GST: null, CHEQUE: null, MSME: null })
+  const bossOptions = user?.role === 'EMPLOYEE' ? (user.boss_details || []) : []
 
   const validateForm = (nextForm, nextFiles, nextTouched = touched, showAll = submitAttempted) => {
     const e = {}
     const shouldRequire = (field) => showAll || nextTouched[field]
 
     if (shouldRequire('onboarding_type') && !nextForm.onboarding_type) e.onboarding_type = 'Please select Vendor or Customer.'
+    if (user?.role === 'EMPLOYEE' && shouldRequire('approval_boss') && !nextForm.approval_boss) e.approval_boss = 'Please select the boss for approval.'
     if (shouldRequire('company_name') && !nextForm.company_name.trim()) e.company_name = 'Company name is required.'
     if (shouldRequire('emails') && !nextForm.emails.filter(Boolean).length) e.emails = 'At least one email is required.'
     if (shouldRequire('phones') && !nextForm.phones.filter(Boolean).length) e.phones = 'At least one phone number is required.'
@@ -255,6 +260,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         company_code_to_open:     form.company_code_to_open,
         payment_terms:            form.payment_terms,
         tds_codes:                form.tds_codes,
+        approval_boss:            form.approval_boss,
       })
 
       // 2. Upload selected documents
@@ -335,6 +341,22 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
           </div>
           {errors.onboarding_type && <span className="field-error" style={{ marginTop: 6, display: 'block' }}>{errors.onboarding_type}</span>}
         </div>
+
+        {user?.role === 'EMPLOYEE' && (
+          <div className="card manual-card" style={{ marginBottom: '1rem' }}>
+            <div className="card-title"><div className="card-title-icon">✓</div>Approval Boss</div>
+            <div className="field">
+              <label>Send For Approval To <span className="req">*</span></label>
+              <select value={form.approval_boss} onChange={(e) => set('approval_boss', e.target.value)} className={errors.approval_boss ? 'error' : ''}>
+                <option value="">Select boss</option>
+                {bossOptions.map((boss) => (
+                  <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
+                ))}
+              </select>
+              {errors.approval_boss && <span className="field-error">{errors.approval_boss}</span>}
+            </div>
+          </div>
+        )}
 
         {/* ── Company & Contact ── */}
         <div className="card manual-card" style={{ marginBottom: '1rem' }}>
