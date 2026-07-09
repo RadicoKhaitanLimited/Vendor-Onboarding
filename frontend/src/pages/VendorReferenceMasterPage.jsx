@@ -6,6 +6,8 @@ import api from '../api/axios'
 
 const EMPTY_FORM = {
   vendor_reference_range: '',
+  group_code: '',
+  nr_group: '',
   reference_name: '',
   gl_account_number: '',
   gl_account_description: '',
@@ -87,6 +89,8 @@ export default function VendorReferenceMasterPage() {
     setEditingId(record.id)
     setForm({
       vendor_reference_range: record.vendor_reference_range,
+      group_code: record.group_code || '',
+      nr_group: record.nr_group || '',
       reference_name: record.reference_name,
       gl_account_number: record.gl_account_number,
       gl_account_description: record.gl_account_description,
@@ -169,6 +173,25 @@ export default function VendorReferenceMasterPage() {
                 </select>
               </div>
               <div className="field">
+                <label>New Grouping</label>
+                <input
+                  type="text"
+                  value={form.group_code}
+                  onChange={(event) => updateForm('group_code', event.target.value)}
+                  placeholder="VRMS"
+                />
+              </div>
+              <div className="field">
+                <label>NR</label>
+                <input
+                  type="text"
+                  value={form.nr_group}
+                  onChange={(event) => updateForm('nr_group', event.target.value)}
+                  placeholder="01"
+                  style={{ fontFamily: 'var(--mono)' }}
+                />
+              </div>
+              <div className="field">
                 <label>Reference Name <span className="req">*</span></label>
                 <input
                   type="text"
@@ -235,6 +258,14 @@ export default function VendorReferenceMasterPage() {
                   <strong>{lookupResult.reference_name}</strong>
                 </div>
                 <div>
+                  <span>New Grouping</span>
+                  <strong>{lookupResult.group_code || '-'}</strong>
+                </div>
+                <div>
+                  <span>NR</span>
+                  <strong>{lookupResult.nr_group || '-'}</strong>
+                </div>
+                <div>
                   <span>GL Account</span>
                   <strong>{lookupResult.gl_account_number}</strong>
                 </div>
@@ -254,7 +285,7 @@ export default function VendorReferenceMasterPage() {
               <span>Search</span>
               <input
                 type="text"
-                placeholder="Range, name, GL..."
+                placeholder="Range, grouping, name, GL..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -273,6 +304,8 @@ export default function VendorReferenceMasterPage() {
               <thead>
                 <tr>
                   <th>Range</th>
+                  <th>New Grouping</th>
+                  <th>NR</th>
                   <th>Reference Name</th>
                   <th>GL Account</th>
                   <th>Description</th>
@@ -283,6 +316,8 @@ export default function VendorReferenceMasterPage() {
                 {records.map((record) => (
                   <tr key={record.id}>
                     <td><span className="code-chip">{record.vendor_reference_range_display}</span></td>
+                    <td><span className="code-chip">{record.group_code || '-'}</span></td>
+                    <td><span style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{record.nr_group || '-'}</span></td>
                     <td>{record.reference_name}</td>
                     <td><span style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{record.gl_account_number}</span></td>
                     <td>{record.gl_account_description}</td>

@@ -76,7 +76,6 @@ def _validate_required_manual_onboarding_fields(data):
     errors = {}
     required_text_fields = {
         'company_name': 'Company name is required.',
-        'district': 'District is required.',
         'city': 'City is required.',
         'state': 'State is required.',
         'street1': 'Street address is required.',
@@ -266,97 +265,202 @@ def _yes_no(value):
     return 'Yes' if value else 'No'
 
 
+SAP_REGION_CODES = {
+    'Andaman & Nicobar Islands': 'AN',
+    'Andaman And Nicobar': 'AN',
+    'Andhra Pradesh': 'AP',
+    'Arunachal Pradesh': 'ARP',
+    'Assam': 'AS',
+    'Bihar': 'BH',
+    'Chandigarh': 'CD',
+    'Chhattisgarh': 'CH',
+    'Chattisgarh': 'CH',
+    'Dadra And Nagar Haveli': 'DH',
+    'Dadra & Nagar Haveli': 'DH',
+    'Daman & Diu': 'DD',
+    'Delhi': 'DEL',
+    'Goa': 'GDD',
+    'Gujarat': 'GJ',
+    'Haryana': 'HR',
+    'Himachal Pradesh': 'HP',
+    'Jammu And Kashmir': 'JK',
+    'Jammu & Kashmir': 'JK',
+    'Jharkhand': 'JH',
+    'Karnataka': 'KAR',
+    'Kerala': 'KER',
+    'Lakshadweep': 'LAK',
+    "Ladakh": "LA",
+    'Madhya Pradesh': 'MP',
+    'Maharashtra': 'MAH',
+    'Meghalaya': 'MG',
+    'Mizoram': 'MZ',
+    'Nagaland': 'NG',
+    'Odisha': 'OR',
+    'Orissa': 'OR',
+    'Puducherry': 'PY',
+    'Pondicherry': 'PY',
+    'Punjab': 'PB',
+    'Rajasthan': 'RJ',
+    'Sikkim': 'SK',
+    'Tamil Nadu': 'TN',
+    'Telangana': 'TG',
+    'Tripura': 'TP',
+    'Uttarakhand': 'UT',
+    'Uttaranchal': 'UT',
+    'Uttar Pradesh': 'UP',
+    'West Bengal': 'WB',
+    "Export": 'EXP'
+}
+
+
+def _first_list_value(value):
+    if isinstance(value, list):
+        return str(value[0] or '').strip() if value else ''
+    return str(value or '').split(',')[0].strip()
+
+
+def _name_part(value, index, size=35):
+    normalized = ' '.join(str(value or '').split())
+    start = index * size
+    return normalized[start:start + size]
+
+
+def _sap_region_code(state):
+    normalized = str(state or '').strip()
+    if not normalized:
+        return ''
+    return SAP_REGION_CODES.get(normalized, normalized.upper())
+
+
+def _first_tds_code(value):
+    parts = _first_list_value(value).split()
+    return parts[0].strip() if parts else ''
+
+
+def _bank_account_main(value):
+    return str(value or '').strip()[:18]
+
+
+def _bank_account_extra(value):
+    account_number = str(value or '').strip()
+    return account_number[18:] if len(account_number) > 18 else ''
+
+
+def _vendor_master(onboarding):
+    return getattr(onboarding, '_vendor_reference_master', None)
+
+
+def _vendor_group_code(onboarding):
+    master = _vendor_master(onboarding)
+    return master.group_code if master else ''
+
+
 class OnboardingExportView(APIView):
     permission_classes = [IsAdmin]
 
     COLUMNS = [
-        ('Code', lambda o: o.onboarding_code),
-        ('Type', lambda o: o.get_onboarding_type_display()),
-        ('Status', lambda o: o.get_status_display()),
-
-        # Company
-        ('Company Name', lambda o: o.company_name),
-        ('Contact Person', lambda o: o.contact_person),
-        ('Email Address(es)', lambda o: ', '.join(o.emails or [])),
-        ('Phone Number(s)', lambda o: ', '.join(o.phones or [])),
-        ('Date of Birth/Commencement', lambda o: _fmt_date(o.date_of_birth)),
-
-        # Address
-        ('District', lambda o: o.district),
-        ('City', lambda o: o.city),
-        ('State', lambda o: o.state),
-        ('PIN Code', lambda o: o.pincode),
-        ('Country', lambda o: o.country),
-        ('Street 1', lambda o: o.street1),
-        ('Street 2', lambda o: o.street2),
-        ('Street 3', lambda o: o.street3),
-        ('Street 4', lambda o: o.street4),
-
-        # Tax
-        ('PAN Number', lambda o: o.pan_number),
-        ('PAN Verified', lambda o: _yes_no(o.pan_verified)),
-        ('PAN Verification Status', lambda o: o.pan_verification_status or ''),
-        ('GST Applicable', lambda o: _yes_no(o.gst_applicable)),
-        ('GST Number', lambda o: o.gst_number),
-        ('GST Verified', lambda o: _yes_no(o.gst_verified)),
-        ('GST Verification Status', lambda o: o.gst_verification_status or ''),
-
-        # Bank
-        ('Account Holder Name', lambda o: o.account_holder_name),
-        ('Bank Name', lambda o: o.bank_name),
-        ('Branch Name', lambda o: o.branch_name),
-        ('Account Number', lambda o: o.account_number),
-        ('IFSC Code', lambda o: o.ifsc_code),
-
-        # MSME
-        ('MSME Applicable', lambda o: _yes_no(o.msme_applicable)),
-        ('MSME Status', lambda o: o.get_msme_status_display()),
-        ('MSME Category', lambda o: o.get_msme_category_display() if o.msme_category else ''),
-        ('Udyam Number', lambda o: o.udyam_number),
-
-        # SAP / ERP Reference
-        ('Vendor Reference Code', lambda o: o.reference_vendor_code),
-        ('Vendor Reference Range', lambda o: o.vendor_reference_range),
-        ('Reference Name', lambda o: o.reference_name),
-        ('GL Account Number', lambda o: o.gl_account_number),
-        ('GL Account Description', lambda o: o.gl_account_description),
-        ('Reference Purchase Orgs', lambda o: ', '.join(o.reference_purchase_orgs or [])),
-        ('Purchase Org(s) to Open', lambda o: o.purchase_orgs_to_open),
-        ('Search Term', lambda o: o.search_term),
-        ('Company Code to Open', lambda o: o.company_code_to_open),
-        ('Payment Terms', lambda o: o.payment_terms),
-        ('TDS Codes', lambda o: o.tds_codes),
-
-        # Documents
-        ('Documents Uploaded', lambda o: ', '.join(sorted({d.document_type for d in o.documents.all()}))),
-
-        # Workflow
-        ('Created By', lambda o: o.created_by.email if o.created_by_id else ''),
-        ('Assigned User', lambda o: o.assigned_user.email if o.assigned_user_id else ''),
-        ('Approved By', lambda o: o.approved_by.email if o.approved_by_id else ''),
-        ('Approved At', lambda o: _fmt_dt(o.approved_at)),
-        ('Remarks', lambda o: o.remarks),
-        ('Created Date', lambda o: _fmt_dt(o.created_at)),
-        ('Updated Date', lambda o: _fmt_dt(o.updated_at)),
+        ('Partner', lambda o: ''),
+        ('BP_ROLE', lambda o: 'GEN'),
+        ('CREATION_GROUP', lambda o: 'FLVN010X'),
+        ('PARTN_GRP', _vendor_group_code),
+        ('SEARCHTERM1', lambda o: o.search_term),
+        ('SEARCHTERM2', lambda o: o.pan_number),
+        ('PARTNERTYPE', lambda o: ''),
+        ('AUTHORIZATIONGROUP', lambda o: ''),
+        ('PARTNERLANGUAGE', lambda o: ''),
+        ('TITLE_KEY', lambda o: ''),
+        ('NAME1', lambda o: _name_part(o.company_name, 0)),
+        ('NAME2', lambda o: _name_part(o.company_name, 1)),
+        ('NAME3', lambda o: _name_part(o.company_name, 2)),
+        ('NAME4', lambda o: _name_part(o.company_name, 3)),
+        ('INDUSTRYSECTOR', lambda o: ''),
+        ('CITY', lambda o: o.city),
+        ('STREET', lambda o: o.street1),
+        ('STR_SUPPL1 (Street 2)', lambda o: o.street2),
+        ('STR_SUPPL2(Street3)', lambda o: o.street3),
+        ('STR_SUPPL3(Street 4)', lambda o: o.street4),
+        ('LOCATION', lambda o: o.district),
+        ('POSTL_COD1(Postal Code)', lambda o: o.pincode),
+        ('COUNTRY', lambda o: 'IN' if str(o.country or '').strip().lower() in ['', 'india'] else o.country),
+        ('REGION', lambda o: _sap_region_code(o.state)),
+        ('TRANSPZONE', lambda o: ''),
+        ('TAXTYPE', lambda o: ''),
+        ('TAXNUMBER (GST)', lambda o: o.gst_number),
+        ('ZUAWA(Sort Key)', lambda o: ''),
+        ('AKONT(Reconciliation acct)', lambda o: o.gl_account_number),
+        ('BEGRU(Auth. Grp.)', lambda o: ''),
+        ('ZWELS(Payment Method)', lambda o: 'ACHORSXYZ'),
+        ('ZTERM (payment term)', lambda o: o.payment_terms),
+        ('REPRF(Check Double Invoice)', lambda o: 'X'),
+        ('TOGRU(Tolerance grp)', lambda o: ''),
+        ('HBKID (house Bank)', lambda o: ''),
+        ('QSZNR(Exemption Number)', lambda o: ''),
+        ('QSZDT(Valid Until)', lambda o: ''),
+        ('QSSKZ(WTax Code)', lambda o: ''),
+        ('MINDK(Minority Indic.)', lambda o: o.msme_status),
+        ('UZAWE(Pmt Meth. Supplement)', lambda o: ''),
+        ('TLFNS(Acct.clerks tel.no.)', lambda o: ''),
+        ('EKORG(Purchasing Org.)', lambda o: _first_list_value(o.purchase_orgs_to_open or o.reference_purchase_orgs)),
+        ('WAERS(Currency)', lambda o: 'INR'),
+        ('VZTERM(Payment term key)', lambda o: ''),
+        ('INCO1(Incoterms)', lambda o: ''),
+        ('INCO2_L(Incoterms1)', lambda o: ''),
+        ('INCO3_L(Incoterms2)', lambda o: ''),
+        ('WEBRE(GR-Based Inv. Verif.)', lambda o: 'X'),
+        ('LEBRE(Service-Based Invoice Verification)', lambda o: 'X'),
+        ('EKGRP(Purchase Grp)', lambda o: ''),
+        ('KALSK(Schema Grp Supp)', lambda o: ''),
+        ('BUKRS(Comp code)', lambda o: o.company_code_to_open),
+        ('PANNO', lambda o: o.pan_number),
+        ('TELEPHONE', lambda o: _first_list_value(o.phones)),
+        ('EXTENSION', lambda o: ''),
+        ('TEL_NO(Telephone2)', lambda o: _first_list_value(o.phones)),
+        ('EXTENSION2', lambda o: ''),
+        ('E_MAIL', lambda o: _first_list_value(o.emails)),
+        ('BANK_CTRY(Bank COuntry)', lambda o: 'IN'),
+        ('BANK_KEY (IFSC Code)', lambda o: o.ifsc_code),
+        ('BANK_ACCT(Bank Account)', lambda o: _bank_account_main(o.account_number)),
+        ('Reference Details (A/C No-extra digits if longer than 18 chars.)', lambda o: _bank_account_extra(o.account_number)),
+        ('ACCOUNTHOLDER', lambda o: o.account_holder_name),
+        ('BANKACCOUNTNAME', lambda o: ''),
+        ('BP_BANK_GUID', lambda o: ''),
+        ('WITHT(Withholding Tax Type)', lambda o: _first_tds_code(o.tds_codes)),
+        ('WT_SUBJCT(Subject to w/tax)', lambda o: 'X' if _first_tds_code(o.tds_codes) else ''),
+        ('QSREC(Recipient Type)', lambda o: 'OT' if _first_tds_code(o.tds_codes) else ''),
+        ('WT_WTSTCD(W/tax identification no.)', lambda o: ''),
+        ('WT_WITHCD(W/Tax Code)', lambda o: _first_tds_code(o.tds_codes)),
+        ('WT_EXNR(Exemption Number)', lambda o: ''),
+        ('WT_EXRT(Exemption Rate)', lambda o: ''),
+        ('WT_EXDF(Exemption Start Date)', lambda o: ''),
+        ('WT_EXDT(Exemption End Date)', lambda o: ''),
+        ('WT_WTEXRS(Exempt. Reason)', lambda o: ''),
+        ('Name of Representative', lambda o: ''),
+        ('Type of Industry', lambda o: ''),
+        ('Planning Group', lambda o: 'O2'),
+        ('ServAgntProcGrp(DLGRP)', lambda o: ''),
+        ('Stat.grp, agent', lambda o: ''),
+        ('Shipping Conditions', lambda o: ''),
+        ('Part_categr(1,2 or3)', lambda o: 2),
+        ('Certification date', lambda o: ''),
+        ('Vendor_class', lambda o: 0),
     ]
 
-    def get(self, request):
-        try:
-            queryset = _filter_by_created_date(_scoped_qs(request.user), request.query_params)
-        except ValueError as error:
-            return Response(error.args[0], status=status.HTTP_400_BAD_REQUEST)
-
-        queryset = queryset.prefetch_related('documents')
-
+    def build_workbook_response(self, queryset, filename):
         from openpyxl import Workbook
         from openpyxl.styles import Font
 
+        vendor_masters = {
+            master.vendor_reference_range: master
+            for master in VendorReferenceMaster.objects.all()
+        }
+
         workbook = Workbook()
         worksheet = workbook.active
-        worksheet.title = 'Onboardings'
+        worksheet.title = 'Mass Vendor Creation Template'
         worksheet.append([header for header, _ in self.COLUMNS])
 
         for onboarding in queryset:
+            onboarding._vendor_reference_master = vendor_masters.get(onboarding.vendor_reference_range)
             worksheet.append([getter(onboarding) for _, getter in self.COLUMNS])
 
         for index in range(1, len(self.COLUMNS) + 1):
@@ -368,9 +472,34 @@ class OnboardingExportView(APIView):
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = 'attachment; filename="onboarding_export.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         workbook.save(response)
         return response
+
+    def get(self, request):
+        try:
+            queryset = _filter_by_created_date(_scoped_qs(request.user), request.query_params)
+        except ValueError as error:
+            return Response(error.args[0], status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = queryset.filter(status='APPROVED')
+        return self.build_workbook_response(queryset, 'onboarding_export.xlsx')
+
+
+class OnboardingSingleExportView(OnboardingExportView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request, pk):
+        queryset = _scoped_qs(request.user).filter(pk=pk, status='APPROVED')
+        onboarding = queryset.first()
+        if not onboarding:
+            return Response(
+                {'detail': 'Only approved records can be exported.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        filename = f'{onboarding.onboarding_code or "onboarding"}_export.xlsx'
+        return self.build_workbook_response(queryset, filename)
 
 
 class PanDataExportView(APIView):
@@ -818,6 +947,8 @@ class VendorReferenceMasterListCreateView(APIView):
         if search:
             qs = qs.filter(
                 Q(vendor_reference_range__icontains=search) |
+                Q(group_code__icontains=search) |
+                Q(nr_group__icontains=search) |
                 Q(reference_name__icontains=search) |
                 Q(gl_account_number__icontains=search) |
                 Q(gl_account_description__icontains=search)

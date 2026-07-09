@@ -27,11 +27,11 @@ class OnboardingTokenAdmin(admin.ModelAdmin):
 @admin.register(VendorReferenceMaster)
 class VendorReferenceMasterAdmin(admin.ModelAdmin):
     list_display = [
-        'vendor_reference_range', 'reference_name',
+        'vendor_reference_range', 'group_code', 'nr_group', 'reference_name',
         'gl_account_number', 'gl_account_description', 'updated_at',
     ]
     search_fields = [
-        'vendor_reference_range', 'reference_name',
+        'vendor_reference_range', 'group_code', 'nr_group', 'reference_name',
         'gl_account_number', 'gl_account_description',
     ]
     readonly_fields = ['created_at', 'updated_at']

@@ -1013,6 +1013,35 @@ tbody tr:active { transform: scale(.998); }
 .btn-icon:hover { background: var(--brand-light); border-color: var(--brand); }
 .btn-icon.danger { color: var(--danger); }
 .btn-icon.danger:hover { background: var(--danger-bg); border-color: var(--danger); }
+.btn-icon:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: .6;
+}
+.btn-icon:disabled:hover {
+  background: var(--surface);
+  border-color: var(--border-2);
+}
+.row-export-btn {
+  min-width: 62px;
+  border-color: rgba(30,64,175,.5);
+  background: linear-gradient(135deg, #1D4ED8 0%, #2563EB 56%, #3B82F6 100%);
+  color: #FFFFFF;
+  font-weight: 800;
+  box-shadow: 0 1px 0 rgba(255,255,255,.26) inset, 0 8px 18px rgba(37,99,235,.18);
+}
+.row-export-btn:hover:not(:disabled) {
+  border-color: rgba(30,64,175,.62);
+  background: linear-gradient(135deg, #1E40AF 0%, #1D4ED8 56%, #2563EB 100%);
+  color: #FFFFFF;
+  box-shadow: 0 1px 0 rgba(255,255,255,.28) inset, 0 10px 22px rgba(37,99,235,.26);
+}
+.row-export-btn:disabled {
+  border-color: #E5E7EB;
+  background: #FFFFFF;
+  color: #9CA3AF;
+  box-shadow: none;
+}
 
 .vendor-ref-result {
   border: 1px solid var(--border);

@@ -160,7 +160,6 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
             errors = {}
             required_text_fields = {
                 'company_name': 'Company name is required.',
-                'district': 'District is required.',
                 'city': 'City is required.',
                 'state': 'State is required.',
                 'street1': 'Street address is required.',
@@ -242,10 +241,17 @@ class VendorReferenceMasterSerializer(serializers.ModelSerializer):
         model = VendorReferenceMaster
         fields = [
             'id', 'vendor_reference_range', 'vendor_reference_range_display',
-            'reference_name', 'gl_account_number', 'gl_account_description',
+            'group_code', 'nr_group', 'reference_name',
+            'gl_account_number', 'gl_account_description',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_group_code(self, value):
+        return str(value or '').strip().upper()
+
+    def validate_nr_group(self, value):
+        return str(value or '').strip()
 
     def validate_vendor_reference_range(self, value):
         normalized = value.replace(' ', '')

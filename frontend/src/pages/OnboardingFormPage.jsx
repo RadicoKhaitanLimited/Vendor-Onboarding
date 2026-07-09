@@ -159,7 +159,6 @@ export default function OnboardingFormPage() {
     if (shouldRequire('company_name') && !nextForm.company_name.trim()) e.company_name = 'Company name is required.'
     if (shouldRequire('emails') && !nextForm.emails.filter(Boolean).length) e.emails = 'At least one email is required.'
     if (shouldRequire('phones') && !nextForm.phones.filter(Boolean).length) e.phones = 'At least one phone number is required.'
-    if (shouldRequire('district') && !nextForm.district.trim()) e.district = 'District is required.'
     if (shouldRequire('city') && !nextForm.city.trim()) e.city = 'City is required.'
     if (shouldRequire('state') && !nextForm.state) e.state = 'State is required.'
     if (shouldRequire('pincode') && (!nextForm.pincode || nextForm.pincode.length !== 6)) e.pincode = '6-digit PIN code is required.'
@@ -218,7 +217,6 @@ export default function OnboardingFormPage() {
       company_name: true,
       emails: true,
       phones: true,
-      district: true,
       city: true,
       state: true,
       pincode: true,
@@ -315,7 +313,7 @@ export default function OnboardingFormPage() {
 
   // ── Step 1 validation ──
   const validateStep1 = () => {
-    const e = pickErrors(validateAll(), ['company_name', 'emails', 'phones', 'district', 'city', 'state', 'pincode', 'street1'])
+    const e = pickErrors(validateAll(), ['company_name', 'emails', 'phones', 'city', 'state', 'pincode', 'street1'])
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -485,7 +483,7 @@ export default function OnboardingFormPage() {
               <div className="card-title"><div className="card-title-icon">📍</div>Registered Address</div>
               <div className="grid-2">
                 <div className="field">
-                  <label>District <span className="req">*</span></label>
+                  <label>District</label>
                   <input type="text" value={form.district} onChange={(e) => set('district', e.target.value)} placeholder="District" disabled={isReadOnly} className={errors.district ? 'error' : ''} />
                   {errors.district && <span className="field-error">{errors.district}</span>}
                 </div>

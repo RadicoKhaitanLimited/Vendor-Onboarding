@@ -83,6 +83,14 @@ export default function VendorReferenceLookupFields({
             <strong>{mapping.reference_name}</strong>
           </div>
           <div>
+            <span>New Grouping</span>
+            <strong>{mapping.group_code || '-'}</strong>
+          </div>
+          <div>
+            <span>NR</span>
+            <strong>{mapping.nr_group || '-'}</strong>
+          </div>
+          <div>
             <span>GL Account Number</span>
             <strong>{mapping.gl_account_number}</strong>
           </div>

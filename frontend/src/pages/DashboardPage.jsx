@@ -110,6 +110,7 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [rowExportingId, setRowExportingId] = useState(null)
   const [panExporting, setPanExporting] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -225,6 +226,34 @@ export default function DashboardPage() {
       toast.error('PAN data export failed', 'Unable to export the selected PAN data.')
     } finally {
       setPanExporting(false)
+    }
+  }
+
+  const handleRowExport = async (event, onboarding) => {
+    event.stopPropagation()
+    if (onboarding.status !== 'APPROVED') {
+      toast.error('Export unavailable', 'Only approved records can be exported.')
+      return
+    }
+
+    setRowExportingId(onboarding.id)
+    try {
+      const response = await api.get(`/onboarding/export/${onboarding.id}/`, {
+        responseType: 'blob',
+      })
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${onboarding.onboarding_code || 'onboarding'}_export.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success('Export downloaded')
+    } catch {
+      toast.error('Export failed', 'Only approved records can be exported.')
+    } finally {
+      setRowExportingId(null)
     }
   }
 
@@ -398,6 +427,7 @@ export default function DashboardPage() {
                   <th>MSME</th>
                   <th>Status</th>
                   <th>Created</th>
+                  <th>Export</th>
                 </tr>
               </thead>
               <tbody>
@@ -441,6 +471,17 @@ export default function DashboardPage() {
                     </td>
                     <td style={{ color: 'var(--muted)', fontSize: 12 }}>
                       {new Date(o.created_at).toLocaleDateString('en-IN')}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-icon row-export-btn"
+                        onClick={(event) => handleRowExport(event, o)}
+                        disabled={o.status !== 'APPROVED' || rowExportingId === o.id}
+                        title={o.status === 'APPROVED' ? 'Export this record' : 'Only approved records can be exported'}
+                      >
+                        {rowExportingId === o.id ? '...' : 'Export'}
+                      </button>
                     </td>
                   </tr>
                   )

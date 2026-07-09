@@ -279,7 +279,6 @@ export default function EditOnboardingModal({
     if (!form.company_name.trim()) e.company_name = 'Company name is required.'
     if (!form.emails.filter(Boolean).length) e.emails = 'At least one email is required.'
     if (!form.phones.filter(Boolean).length) e.phones = 'At least one phone number is required.'
-    if (!form.district.trim()) e.district = 'District is required.'
     if (!form.city.trim()) e.city = 'City is required.'
     if (!form.state) e.state = 'State is required.'
     if (!form.street1.trim()) e.street1 = 'Street address is required.'
