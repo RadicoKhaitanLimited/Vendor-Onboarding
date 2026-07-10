@@ -1,9 +1,9 @@
 from django.urls import path
 from .views import (
     OnboardingListView, CreateOnboardingView, ManualOnboardingView, OnboardingDetailView,
-    ApproveOnboardingView, RejectOnboardingView, SendToBossView, ResendInviteView,
+    ApproveOnboardingView, BulkApproveOnboardingView, RejectOnboardingView, SendToBossView, BulkSendToBossView, ResendInviteView,
     ValidateTokenView, SubmitOnboardingView, DashboardStatsView, OnboardingExportView,
-    OnboardingSingleExportView, PanDataExportView,
+    OnboardingSingleExportView, PanDataExportView, BulkOnboardingImportView, BulkOnboardingTemplateView,
     VendorReferenceRangeListView, VendorReferenceMasterListCreateView,
     VendorReferenceMasterDetailView, VendorReferenceLookupView, PaymentTermListView,
     PurchaseOrganizationListView, CompanyCodeListView, TDSCodeListView,
@@ -14,6 +14,10 @@ urlpatterns = [
     path('', OnboardingListView.as_view(), name='onboarding_list'),
     path('create/', CreateOnboardingView.as_view(), name='onboarding_create'),
     path('manual/', ManualOnboardingView.as_view(), name='onboarding_manual'),
+    path('bulk-import/', BulkOnboardingImportView.as_view(), name='onboarding_bulk_import'),
+    path('bulk-import/template/', BulkOnboardingTemplateView.as_view(), name='onboarding_bulk_import_template'),
+    path('bulk-send-to-boss/', BulkSendToBossView.as_view(), name='onboarding_bulk_send_to_boss'),
+    path('bulk-approve/', BulkApproveOnboardingView.as_view(), name='onboarding_bulk_approve'),
     path('stats/', DashboardStatsView.as_view(), name='dashboard_stats'),
     path('export/', OnboardingExportView.as_view(), name='onboarding_export'),
     path('export/<uuid:pk>/', OnboardingSingleExportView.as_view(), name='onboarding_single_export'),

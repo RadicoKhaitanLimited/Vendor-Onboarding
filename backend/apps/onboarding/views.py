@@ -641,6 +641,196 @@ class ManualOnboardingView(APIView):
         return Response(OnboardingDetailSerializer(onboarding).data, status=status.HTTP_201_CREATED)
 
 
+# ── Admin: Bulk onboarding import from Excel ─────────────────────
+BULK_IMPORT_COLUMNS = [
+    ('company_name', 'Company Name'),
+    ('contact_person', 'Contact Person'),
+    ('emails', 'Email(s)'),
+    ('phones', 'Phone(s)'),
+    ('district', 'District'),
+    ('city', 'City'),
+    ('state', 'State'),
+    ('pincode', 'Pincode'),
+    ('country', 'Country'),
+    ('street1', 'Street 1'),
+    ('street2', 'Street 2'),
+    ('street3', 'Street 3'),
+    ('street4', 'Street 4'),
+    ('pan_number', 'PAN Number'),
+    ('gst_applicable', 'GST Applicable (Yes/No)'),
+    ('gst_number', 'GST Number'),
+    ('account_holder_name', 'Account Holder Name'),
+    ('bank_name', 'Bank Name'),
+    ('branch_name', 'Branch Name'),
+    ('account_number', 'Account Number'),
+    ('ifsc_code', 'IFSC Code'),
+    ('msme_applicable', 'MSME Applicable (Yes/No)'),
+    ('msme_category', 'MSME Category'),
+    ('udyam_number', 'Udyam Number'),
+]
+
+
+class BulkOnboardingTemplateView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = 'Bulk Onboarding Template'
+        worksheet.append([header for _, header in BULK_IMPORT_COLUMNS])
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True)
+        for index in range(1, len(BULK_IMPORT_COLUMNS) + 1):
+            worksheet.column_dimensions[worksheet.cell(row=1, column=index).column_letter].width = 24
+        worksheet.freeze_panes = 'A2'
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="bulk_onboarding_template.xlsx"'
+        workbook.save(response)
+        return response
+
+
+def _bulk_import_cell(value):
+    if value is None:
+        return ''
+    return str(value).strip()
+
+
+def _bulk_import_bool(value):
+    normalized = _bulk_import_cell(value).lower()
+    if normalized in ('yes', 'y', 'true', '1'):
+        return True
+    if normalized in ('no', 'n', 'false', '0', ''):
+        return False
+    return None
+
+
+def _bulk_import_list(value):
+    return [part.strip() for part in _bulk_import_cell(value).split(',') if part.strip()]
+
+
+def _row_to_onboarding_data(row, headers, onboarding_type):
+    padded_row = list(row) + [None] * (len(headers) - len(row))
+    raw = dict(zip(headers, padded_row))
+    data = {'onboarding_type': onboarding_type}
+    for field, header in BULK_IMPORT_COLUMNS:
+        data[field] = raw.get(header)
+
+    data['emails'] = _bulk_import_list(data.get('emails'))
+    data['phones'] = _bulk_import_list(data.get('phones'))
+    data['country'] = _bulk_import_cell(data.get('country')) or 'India'
+    data['pan_number'] = _bulk_import_cell(data.get('pan_number')).upper()
+    data['gst_number'] = _bulk_import_cell(data.get('gst_number')).upper()
+    data['ifsc_code'] = _bulk_import_cell(data.get('ifsc_code')).upper()
+    data['pincode'] = _bulk_import_cell(data.get('pincode'))
+
+    gst_applicable = _bulk_import_bool(data.get('gst_applicable'))
+    data['gst_applicable'] = bool(gst_applicable)
+    if not gst_applicable:
+        data['gst_number'] = ''
+
+    msme_applicable = _bulk_import_bool(data.get('msme_applicable'))
+    data['msme_applicable'] = bool(msme_applicable)
+    msme_category = _bulk_import_cell(data.get('msme_category')).upper()
+    if msme_applicable:
+        data['msme_category'] = msme_category
+        data['msme_status'] = msme_category or 'MNA'
+        data['udyam_number'] = _bulk_import_cell(data.get('udyam_number'))
+    else:
+        data['msme_category'] = ''
+        data['msme_status'] = 'MNA'
+        data['udyam_number'] = ''
+
+    for field in ['company_name', 'contact_person', 'district', 'city', 'state',
+                  'street1', 'street2', 'street3', 'street4',
+                  'account_holder_name', 'bank_name', 'branch_name', 'account_number']:
+        data[field] = _bulk_import_cell(data.get(field))
+
+    return data
+
+
+class BulkOnboardingImportView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        onboarding_type = request.data.get('onboarding_type', '').upper()
+        if onboarding_type not in ['VENDOR', 'CUSTOMER']:
+            return Response(
+                {'onboarding_type': ['Must be VENDOR or CUSTOMER.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        upload = request.FILES.get('file')
+        if not upload:
+            return Response({'file': ['An Excel file is required.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        from openpyxl import load_workbook
+        try:
+            workbook = load_workbook(upload, data_only=True)
+        except Exception:
+            return Response({'file': ['Could not read the Excel file. Upload a valid .xlsx file.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        worksheet = workbook.active
+        rows = list(worksheet.iter_rows(values_only=True))
+        if not rows:
+            return Response({'file': ['The file is empty.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        headers = [_bulk_import_cell(cell) for cell in rows[0]]
+        data_rows = rows[1:]
+        if not data_rows:
+            return Response({'file': ['No data rows found below the header.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        created = []
+        row_errors = []
+
+        for index, row in enumerate(data_rows, start=2):
+            if not any(_bulk_import_cell(cell) for cell in row):
+                continue
+
+            row_data = _row_to_onboarding_data(row, headers, onboarding_type)
+            required_errors = _validate_required_manual_onboarding_fields(row_data)
+            if required_errors:
+                row_errors.append({'row': index, 'errors': required_errors})
+                continue
+
+            serializer = OnboardingDetailSerializer(
+                data=row_data,
+                partial=True,
+                context={'require_complete': True},
+            )
+            if not serializer.is_valid():
+                row_errors.append({'row': index, 'errors': serializer.errors})
+                continue
+
+            onboarding = serializer.save(
+                created_by=request.user,
+                assigned_user=None,
+                status='DRAFT',
+            )
+            OnboardingApprovalHistory.objects.create(
+                onboarding=onboarding,
+                action='SUBMITTED',
+                actor=request.user,
+                comments='Created via bulk Excel import.',
+            )
+            created.append(onboarding)
+
+        return Response(
+            {
+                'created_count': len(created),
+                'error_count': len(row_errors),
+                'created': OnboardingListSerializer(created, many=True).data,
+                'errors': row_errors,
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_400_BAD_REQUEST,
+        )
+
+
 # ── Admin: Create onboarding & send email ────────────────────────
 class CreateOnboardingView(APIView):
     permission_classes = [IsAdmin]
@@ -781,6 +971,75 @@ class ApproveOnboardingView(APIView):
         return Response(OnboardingDetailSerializer(onboarding).data)
 
 
+# ── Admin/Boss: Bulk approve ──────────────────────────────────────
+class BulkApproveOnboardingView(APIView):
+    permission_classes = [IsAdminOrBoss]
+
+    def post(self, request):
+        ids = request.data.get('ids') or []
+        if not isinstance(ids, list) or not ids:
+            return Response({'ids': ['Select at least one record to approve.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        remarks = request.data.get('remarks', '')
+
+        onboardings = Onboarding.objects.filter(pk__in=ids)
+        found_by_id = {str(item.id): item for item in onboardings}
+
+        approved = []
+        failed = []
+
+        for onboarding_id in ids:
+            onboarding = found_by_id.get(str(onboarding_id))
+            if not onboarding:
+                failed.append({'id': onboarding_id, 'errors': {'detail': 'Not found.'}})
+                continue
+            if not _can_access(request.user, onboarding):
+                failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': {'detail': 'Forbidden.'}})
+                continue
+            if onboarding.status == 'APPROVED':
+                failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': {'detail': 'Already approved.'}})
+                continue
+
+            approval_messages = _validate_approval_verifications(onboarding)
+            if approval_messages:
+                failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': {'detail': approval_messages[0], 'messages': approval_messages}})
+                continue
+
+            detail_serializer = OnboardingDetailSerializer(
+                onboarding,
+                data={},
+                partial=True,
+                context={'require_complete': True},
+            )
+            if not detail_serializer.is_valid():
+                failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': detail_serializer.errors})
+                continue
+            document_errors = _validate_required_onboarding_documents(onboarding)
+            if document_errors:
+                failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': document_errors})
+                continue
+
+            onboarding.status = 'APPROVED'
+            onboarding.approved_by = request.user
+            onboarding.approved_at = timezone.now()
+            onboarding.remarks = remarks
+            onboarding.save()
+            OnboardingApprovalHistory.objects.create(
+                onboarding=onboarding,
+                action='APPROVED',
+                actor=request.user,
+                comments=remarks,
+            )
+            approved.append(str(onboarding.id))
+
+        return Response({
+            'approved_count': len(approved),
+            'failed_count': len(failed),
+            'approved': approved,
+            'failed': failed,
+        })
+
+
 # ── Admin: Reject ────────────────────────────────────────────────
 class RejectOnboardingView(APIView):
     permission_classes = [IsAdminOrBoss]
@@ -852,6 +1111,72 @@ class SendToBossView(APIView):
             comments=f'Sent to {assigned_boss.email} for boss approval.',
         )
         return Response(OnboardingDetailSerializer(onboarding).data)
+
+
+class BulkSendToBossView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        if request.user.role != 'EMPLOYEE':
+            return Response({'detail': 'Only employees send requests to a boss.'}, status=status.HTTP_403_FORBIDDEN)
+
+        ids = request.data.get('ids') or []
+        if not isinstance(ids, list) or not ids:
+            return Response({'ids': ['Select at least one record to send.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        assigned_boss, boss_error = _selected_approval_boss(request.user, request.data)
+        if boss_error:
+            return Response(boss_error, status=status.HTTP_400_BAD_REQUEST)
+
+        onboardings = Onboarding.objects.filter(pk__in=ids, created_by=request.user)
+        found_by_id = {str(item.id): item for item in onboardings}
+
+        sent = []
+        failed = []
+
+        for onboarding_id in ids:
+            onboarding = found_by_id.get(str(onboarding_id))
+            if not onboarding:
+                failed.append({'id': onboarding_id, 'errors': {'detail': 'Not found.'}})
+                continue
+            if onboarding.status == 'APPROVED':
+                failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': {'detail': 'Already approved.'}})
+                continue
+            if onboarding.status == 'PENDING_BOSS_APPROVAL':
+                failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': {'detail': 'Already sent to a boss.'}})
+                continue
+
+            detail_serializer = OnboardingDetailSerializer(
+                onboarding,
+                data={},
+                partial=True,
+                context={'require_complete': True},
+            )
+            if not detail_serializer.is_valid():
+                failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': detail_serializer.errors})
+                continue
+            document_errors = _validate_required_onboarding_documents(onboarding)
+            if document_errors:
+                failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': document_errors})
+                continue
+
+            onboarding.assigned_user = assigned_boss
+            onboarding.status = 'PENDING_BOSS_APPROVAL'
+            onboarding.save(update_fields=['assigned_user', 'status', 'updated_at'])
+            OnboardingApprovalHistory.objects.create(
+                onboarding=onboarding,
+                action='SUBMITTED',
+                actor=request.user,
+                comments=f'Sent to {assigned_boss.email} for boss approval.',
+            )
+            sent.append(str(onboarding.id))
+
+        return Response({
+            'sent_count': len(sent),
+            'failed_count': len(failed),
+            'sent': sent,
+            'failed': failed,
+        })
 
 
 class ResendInviteView(APIView):

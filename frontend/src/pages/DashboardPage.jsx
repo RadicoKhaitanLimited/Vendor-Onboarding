@@ -7,6 +7,7 @@ import OnboardingDetailPanel from '../components/OnboardingDetailPanel'
 import CreateOnboardingModal from '../components/CreateOnboardingModal'
 import ManageUsersModal from '../components/ManageUsersModal'
 import ManualOnboardingModal from '../components/ManualOnboardingModal'
+import BulkImportModal from '../components/BulkImportModal'
 import { formatMsmeOption, normalizeMsmeCode } from '../constants/msme'
 
 const STATUS_CLASS = {
@@ -117,6 +118,10 @@ export default function DashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showUsersModal, setShowUsersModal] = useState(false)
   const [showManualModal, setShowManualModal] = useState(false)
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false)
+  const [selectedIds, setSelectedIds] = useState([])
+  const [bulkSendBoss, setBulkSendBoss] = useState('')
+  const [bulkSending, setBulkSending] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -149,6 +154,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData()
+    setSelectedIds([])
   }, [fetchData])
 
   const handleCreated = () => {
@@ -161,6 +167,84 @@ export default function DashboardPage() {
     setShowManualModal(false)
     fetchData()
     toast.success('Onboarding created', 'Vendor/customer record created successfully.')
+  }
+
+  const handleBulkImported = () => {
+    fetchData()
+  }
+
+  const isRowSelectable = (o) => {
+    if (user?.role === 'BOSS') return o.status !== 'APPROVED' && o.status !== 'REJECTED'
+    if (user?.role === 'EMPLOYEE') return o.status !== 'APPROVED' && o.status !== 'PENDING_BOSS_APPROVAL'
+    return false
+  }
+
+  const toggleSelected = (id) => {
+    setSelectedIds((current) => (
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    ))
+  }
+
+  const toggleSelectAll = () => {
+    const selectableIds = onboardings.filter(isRowSelectable).map((o) => o.id)
+    const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id))
+    setSelectedIds(allSelected ? [] : selectableIds)
+  }
+
+  const handleBulkSendToBoss = async () => {
+    if (!bulkSendBoss) {
+      toast.error('Select boss', 'Please select the boss for approval.')
+      return
+    }
+    setBulkSending(true)
+    try {
+      const { data } = await api.post('/onboarding/bulk-send-to-boss/', {
+        ids: selectedIds,
+        approval_boss: bulkSendBoss,
+      })
+      if (data.sent_count > 0) {
+        toast.success('Sent to boss', `${data.sent_count} record(s) sent${data.failed_count ? `, ${data.failed_count} failed` : '.'}`)
+      }
+      if (data.failed_count > 0) {
+        const firstFailure = data.failed[0]
+        const firstMessage = firstFailure?.errors ? Object.values(firstFailure.errors).flat().join(' ') : ''
+        toast.error(`${data.failed_count} record(s) could not be sent`, firstFailure?.company_name ? `${firstFailure.company_name}: ${firstMessage}` : firstMessage)
+      }
+      setSelectedIds([])
+      setBulkSendBoss('')
+      fetchData()
+    } catch (err) {
+      const data = err.response?.data
+      const message = data && typeof data === 'object' ? Object.values(data).flat().join(' ') : ''
+      toast.error('Failed', message || 'Could not send selected records to boss.')
+    } finally {
+      setBulkSending(false)
+    }
+  }
+
+  const handleBulkApprove = async () => {
+    setBulkSending(true)
+    try {
+      const { data } = await api.post('/onboarding/bulk-approve/', {
+        ids: selectedIds,
+      })
+      if (data.approved_count > 0) {
+        toast.success('Approved', `${data.approved_count} record(s) approved${data.failed_count ? `, ${data.failed_count} failed` : '.'}`)
+      }
+      if (data.failed_count > 0) {
+        const firstFailure = data.failed[0]
+        const firstMessage = firstFailure?.errors ? Object.values(firstFailure.errors).flat().join(' ') : ''
+        toast.error(`${data.failed_count} record(s) could not be approved`, firstFailure?.company_name ? `${firstFailure.company_name}: ${firstMessage}` : firstMessage)
+      }
+      setSelectedIds([])
+      fetchData()
+    } catch (err) {
+      const data = err.response?.data
+      const message = data && typeof data === 'object' ? Object.values(data).flat().join(' ') : ''
+      toast.error('Failed', message || 'Could not approve selected records.')
+    } finally {
+      setBulkSending(false)
+    }
   }
 
   const handleUpdated = () => {
@@ -314,6 +398,9 @@ export default function DashboardPage() {
             <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowManualModal(true)}>
               Manual Onboarding
             </button>
+            <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowBulkImportModal(true)}>
+              Bulk Import (Excel)
+            </button>
             <button className="btn btn-primary dashboard-action-btn dashboard-primary-action" onClick={() => setShowCreateModal(true)}>
               Generate Onboarding Link
             </button>
@@ -454,6 +541,51 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {user?.role === 'EMPLOYEE' && selectedIds.length > 0 && (
+            <div className="bulk-action-bar">
+              <div className="bulk-action-count">
+                <span key={selectedIds.length} className="bulk-action-count-badge">{selectedIds.length}</span>
+                <span>selected</span>
+              </div>
+              <div className="bulk-action-divider" />
+              <label className="bulk-action-boss-field">
+                <span>Send to</span>
+                <select value={bulkSendBoss} onChange={(e) => setBulkSendBoss(e.target.value)}>
+                  <option value="">Select boss…</option>
+                  {(user.boss_details || []).map((boss) => (
+                    <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="bulk-action-buttons">
+                <button className="btn btn-primary" onClick={handleBulkSendToBoss} disabled={bulkSending || !bulkSendBoss}>
+                  {bulkSending ? <><div className="spinner" /> Sending...</> : `Send ${selectedIds.length} to Boss`}
+                </button>
+                <button className="btn btn-secondary" onClick={() => setSelectedIds([])} disabled={bulkSending}>
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          )}
+
+          {user?.role === 'BOSS' && selectedIds.length > 0 && (
+            <div className="bulk-action-bar">
+              <div className="bulk-action-count">
+                <span key={selectedIds.length} className="bulk-action-count-badge">{selectedIds.length}</span>
+                <span>selected</span>
+              </div>
+              <div className="bulk-action-divider" />
+              <div className="bulk-action-buttons" style={{ marginLeft: 0 }}>
+                <button className="btn btn-primary" onClick={handleBulkApprove} disabled={bulkSending}>
+                  {bulkSending ? <><div className="spinner" /> Approving...</> : `Approve ${selectedIds.length}`}
+                </button>
+                <button className="btn btn-secondary" onClick={() => setSelectedIds([])} disabled={bulkSending}>
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className="empty-state">Loading registrations<div className="loading-shimmer" /></div>
           ) : onboardings.length === 0 ? (
@@ -465,6 +597,22 @@ export default function DashboardPage() {
             <table>
               <thead>
                 <tr>
+                  {(user?.role === 'EMPLOYEE' || user?.role === 'BOSS') && (
+                    <th className="select-col">
+                      <label className="row-check">
+                        <input
+                          type="checkbox"
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={toggleSelectAll}
+                          checked={
+                            selectedIds.length > 0 &&
+                            onboardings.filter(isRowSelectable).every((o) => selectedIds.includes(o.id))
+                          }
+                        />
+                        <span className="row-check-box" />
+                      </label>
+                    </th>
+                  )}
                   <th>Code</th>
                   <th>Type</th>
                   <th>Company Name</th>
@@ -481,9 +629,29 @@ export default function DashboardPage() {
                 {onboardings.map((o) => {
                   const pan = panBadge(o)
                   const gst = gstBadge(o)
+                  const selectable = isRowSelectable(o)
+
+                  const isSelected = selectedIds.includes(o.id)
 
                   return (
-                  <tr key={o.id} className={getVerificationRowClass(o)} onClick={() => setSelectedId(o.id)}>
+                  <tr
+                    key={o.id}
+                    className={[getVerificationRowClass(o), isSelected ? 'row-selected' : ''].filter(Boolean).join(' ')}
+                    onClick={() => setSelectedId(o.id)}
+                  >
+                    {(user?.role === 'EMPLOYEE' || user?.role === 'BOSS') && (
+                      <td className="select-col" onClick={(event) => event.stopPropagation()}>
+                        <label className={`row-check ${!selectable ? 'row-check-disabled' : ''}`} title={selectable ? '' : 'Already finalized'}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={!selectable}
+                            onChange={() => toggleSelected(o.id)}
+                          />
+                          <span className="row-check-box" />
+                        </label>
+                      </td>
+                    )}
                     <td><span className="code-chip">{o.onboarding_code}</span></td>
                     <td>
                       <span className={`type-badge ${o.onboarding_type === 'VENDOR' ? 'type-vendor' : 'type-customer'}`}>
@@ -562,6 +730,13 @@ export default function DashboardPage() {
         <ManualOnboardingModal
           onClose={() => setShowManualModal(false)}
           onCreated={handleManualCreated}
+        />
+      )}
+
+      {showBulkImportModal && (
+        <BulkImportModal
+          onClose={() => setShowBulkImportModal(false)}
+          onImported={handleBulkImported}
         />
       )}
     </>
