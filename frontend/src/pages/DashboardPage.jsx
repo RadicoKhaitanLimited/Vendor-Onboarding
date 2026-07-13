@@ -374,22 +374,18 @@ export default function DashboardPage() {
   return (
     <>
       <header className="app-header">
-        <div className="logo">
-          <img src="/radico-logo.png" alt="Radico Khaitan" className="logo-img" />
+        <div className="header-left">
+          <div className="logo">
+            <img src="/radico-logo.png" alt="Radico Khaitan" className="logo-img" />
+          </div>
         </div>
         <div className="header-title">Business Partner Onboarding</div>
         <nav className="header-nav">
-          <span className="nav-user">
-            {user?.full_name || user?.email}
-          </span>
-          <Link className="nav-btn" to="/profile">Profile</Link>
+          <Link className="nav-btn" to="/profile">{user?.full_name || user?.email}</Link>
           {(user?.is_superuser || ['ADMIN', 'BOSS'].includes(user?.role)) && (
             <button className="nav-btn" onClick={() => setShowUsersModal(true)}>
               {!user?.is_superuser && user?.role === 'BOSS' ? 'My Employees' : 'Manage Users'}
             </button>
-          )}
-          {(user?.is_superuser || user?.role === 'ADMIN') && (
-            <Link className="nav-btn" to="/vendor-reference-master">Vendor Reference Master</Link>
           )}
           <button className="nav-btn danger" onClick={logout}>Sign Out</button>
         </nav>
