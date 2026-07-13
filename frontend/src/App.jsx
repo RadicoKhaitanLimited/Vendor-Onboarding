@@ -1,10 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import OnboardingFormPage from './pages/OnboardingFormPage'
 import VendorReferenceMasterPage from './pages/VendorReferenceMasterPage'
+import ProfilePage from './pages/ProfilePage'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -14,8 +15,9 @@ function ProtectedRoute({ children }) {
 
 function AdminRoute({ children }) {
   const { user, loading } = useAuth()
+  const location = useLocation()
   if (loading) return null
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace state={{ from: location }} />
   if (!['ADMIN', 'BOSS', 'EMPLOYEE'].includes(user.role)) return <Navigate to="/login" replace />
   return children
 }
@@ -36,6 +38,10 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/onboarding/:token" element={<OnboardingFormPage />} />
+            <Route
+              path="/profile"
+              element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
+            />
             <Route
               path="/dashboard"
               element={

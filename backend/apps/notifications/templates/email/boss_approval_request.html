@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<body style="margin:0;padding:32px 16px;background:#f3f4f6;font-family:Segoe UI,Arial,sans-serif;color:#111827;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <tr><td style="background:#111827;padding:28px;text-align:center;border-bottom:3px solid #c9a84c;">
+          <img src="{{ logo_url }}" alt="Radico Khaitan" width="180" style="max-width:180px;height:auto;" />
+        </td></tr>
+        <tr><td style="padding:36px 42px;">
+          <h2 style="margin:0 0 16px;font-size:22px;">Approval required</h2>
+          <p style="margin:0 0 16px;line-height:1.6;">{{ employee_name }} has submitted a {{ entity_type|lower }} onboarding request for your approval.</p>
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin:20px 0;background:#fffbeb;border:1px solid #e7c76a;border-radius:8px;"><tr><td style="padding:16px 20px;">
+            <strong>{{ onboarding.company_name }}</strong><br>
+            <span style="color:#6b7280;font-size:13px;">Reference: {{ onboarding.onboarding_code }}</span>
+          </td></tr></table>
+          <p style="margin:26px 0;text-align:center;">
+            <a href="{{ approval_url }}" style="display:inline-block;padding:14px 30px;background:#c9a84c;border:1px solid #8a6820;border-radius:8px;color:#111827;font-weight:700;text-decoration:none;">Review onboarding request &rarr;</a>
+          </p>
+          <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.6;">You will be asked to sign in if you are not already signed in. Only the assigned approver can approve or reject this request.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

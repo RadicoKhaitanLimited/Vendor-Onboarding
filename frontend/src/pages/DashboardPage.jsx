@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import api from '../api/axios'
@@ -107,6 +107,7 @@ const gstBadge = (onboarding) => {
 export default function DashboardPage() {
   const { user, logout } = useAuth()
   const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [onboardings, setOnboardings] = useState([])
   const [stats, setStats] = useState({})
@@ -127,6 +128,11 @@ export default function DashboardPage() {
   const [selectedIds, setSelectedIds] = useState([])
   const [bulkSendBoss, setBulkSendBoss] = useState('')
   const [bulkSending, setBulkSending] = useState(false)
+
+  useEffect(() => {
+    const approvalId = searchParams.get('approval')
+    if (approvalId) setSelectedId(approvalId)
+  }, [searchParams])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -371,10 +377,12 @@ export default function DashboardPage() {
         <div className="logo">
           <img src="/radico-logo.png" alt="Radico Khaitan" className="logo-img" />
         </div>
+        <div className="header-title">Business Partner Onboarding</div>
         <nav className="header-nav">
           <span className="nav-user">
             {user?.full_name || user?.email}
           </span>
+          <Link className="nav-btn" to="/profile">Profile</Link>
           {(user?.is_superuser || ['ADMIN', 'BOSS'].includes(user?.role)) && (
             <button className="nav-btn" onClick={() => setShowUsersModal(true)}>
               {!user?.is_superuser && user?.role === 'BOSS' ? 'My Employees' : 'Manage Users'}
@@ -392,13 +400,7 @@ export default function DashboardPage() {
           <div className="page-header dashboard-page-header">
           <div>
             <h1>Onboarding Dashboard</h1>
-            <p>
-              {user?.is_superuser
-                ? 'All vendor and customer onboarding registrations across the organisation.'
-                : user?.role === 'BOSS'
-                  ? 'Vendor requests submitted by employees assigned to you.'
-                  : 'Your created vendor onboarding requests.'}
-            </p>
+            <p>Your complete business onboarding journey, in one place.</p>
           </div>
         </div>
 
@@ -407,16 +409,18 @@ export default function DashboardPage() {
             <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowManualModal(true)}>
               Manual Onboarding
             </button>
-            <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowBulkImportModal(true)}>
-              Bulk Import (Excel)
-            </button>
             <button className="btn btn-primary dashboard-action-btn dashboard-primary-action" onClick={() => setShowCreateModal(true)}>
               Generate Onboarding Link
             </button>
           </div>
-          <button className="btn btn-secondary dashboard-export-btn" onClick={handleExport} disabled={exporting}>
-            {exporting ? 'Exporting…' : 'Export Excel'}
-          </button>
+          <div className="dashboard-actions-right">
+            <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowBulkImportModal(true)}>
+              Bulk Import (Excel)
+            </button>
+            <button className="btn btn-secondary dashboard-export-btn" onClick={handleExport} disabled={exporting}>
+              {exporting ? 'Exporting…' : 'Export Excel'}
+            </button>
+          </div>
         </div>
         </div>
 
@@ -728,7 +732,14 @@ export default function DashboardPage() {
       {selectedId && (
         <OnboardingDetailPanel
           id={selectedId}
-          onClose={() => setSelectedId(null)}
+          onClose={() => {
+            setSelectedId(null)
+            if (searchParams.has('approval')) {
+              const nextParams = new URLSearchParams(searchParams)
+              nextParams.delete('approval')
+              setSearchParams(nextParams, { replace: true })
+            }
+          }}
           onUpdated={handleUpdated}
         />
       )}

@@ -38,12 +38,13 @@ class UserSerializer(serializers.ModelSerializer):
     boss_emails = serializers.SerializerMethodField()
     boss_details = serializers.SerializerMethodField()
     employee_count = serializers.IntegerField(source='employees.count', read_only=True)
+    employee_details = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'email', 'full_name', 'role', 'bosses', 'boss_emails',
-            'boss_details', 'employee_count', 'is_active', 'is_superuser', 'created_at',
+            'boss_details', 'employee_count', 'employee_details', 'is_active', 'is_superuser', 'created_at',
         ]
         read_only_fields = ['id', 'is_superuser', 'created_at']
 
@@ -55,6 +56,20 @@ class UserSerializer(serializers.ModelSerializer):
             {'id': str(boss.id), 'email': boss.email, 'full_name': boss.full_name}
             for boss in obj.bosses.order_by('email')
         ]
+
+    def get_employee_details(self, obj):
+        return [
+            {'id': str(employee.id), 'email': employee.email, 'full_name': employee.full_name}
+            for employee in obj.employees.order_by('full_name', 'email')
+        ]
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    """The profile endpoint intentionally permits only personal contact details."""
+
+    class Meta:
+        model = User
+        fields = ['full_name', 'email']
 
 
 class UserCreateSerializer(serializers.ModelSerializer):

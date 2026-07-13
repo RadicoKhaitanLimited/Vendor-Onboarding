@@ -1,3 +1,5 @@
+import logging
+
 from django.utils import timezone
 from django.db.models import Q
 from django.http import HttpResponse
@@ -20,11 +22,24 @@ from .serializers import (
     pan_name_is_editable,
 )
 from apps.accounts.models import User
-from apps.notifications.email_service import send_onboarding_invite
+from apps.notifications.email_service import send_boss_approval_request, send_onboarding_invite
 from config import settings
 
 
 PENDING_STATUS_FILTER = ['PENDING', 'PENDING_BOSS_APPROVAL', 'UNDER_REVIEW']
+logger = logging.getLogger(__name__)
+
+
+def _notify_boss_of_approval_request(onboarding, boss, employee):
+    """Email notification failures must not undo a successfully submitted request."""
+    try:
+        send_boss_approval_request(boss.email, onboarding, employee)
+    except Exception:
+        logger.exception(
+            'Could not send approval notification for onboarding %s to %s',
+            onboarding.id,
+            boss.email,
+        )
 
 
 def _filter_by_created_date(qs, query_params):
@@ -646,6 +661,8 @@ class ManualOnboardingView(APIView):
             actor=request.user,
             comments='Submitted for boss approval.' if assigned_boss else 'Submitted for approval.',
         )
+        if assigned_boss:
+            _notify_boss_of_approval_request(onboarding, assigned_boss, request.user)
         return Response(OnboardingDetailSerializer(onboarding).data, status=status.HTTP_201_CREATED)
 
 
@@ -1124,6 +1141,7 @@ class SendToBossView(APIView):
             actor=request.user,
             comments=f'Sent to {assigned_boss.email} for boss approval.',
         )
+        _notify_boss_of_approval_request(onboarding, assigned_boss, request.user)
         return Response(OnboardingDetailSerializer(onboarding).data)
 
 
@@ -1187,6 +1205,7 @@ class BulkSendToBossView(APIView):
                 actor=request.user,
                 comments=f'Sent to {assigned_boss.email} for boss approval.',
             )
+            _notify_boss_of_approval_request(onboarding, assigned_boss, request.user)
             sent.append(str(onboarding.id))
 
         return Response({

@@ -5,7 +5,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User
-from .serializers import CustomTokenObtainPairSerializer, UserSerializer, UserCreateSerializer
+from .serializers import (
+    CustomTokenObtainPairSerializer, ProfileUpdateSerializer,
+    UserSerializer, UserCreateSerializer,
+)
 
 
 class IsSuperuser(IsAuthenticated):
@@ -46,6 +49,17 @@ class ProfileView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
+    def patch(self, request):
+        if not request.user.is_superuser:
+            return Response(
+                {'detail': 'Only superusers can edit profile details.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = ProfileUpdateSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(UserSerializer(request.user).data)
 
 
 class AdminUsersView(APIView):

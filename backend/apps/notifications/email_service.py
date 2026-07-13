@@ -61,3 +61,22 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
     )
 
     logger.info("Email sent successfully")
+
+
+def send_boss_approval_request(to_email: str, onboarding, employee):
+    """Notify an assigned boss and link directly to the protected review screen."""
+    approval_url = f"{settings.FRONTEND_URL}/dashboard?approval={onboarding.id}"
+    entity_type = _entity_type_for_onboarding(onboarding)
+    subject = f"Approval required: {entity_type} onboarding {onboarding.onboarding_code}"
+    html_body = render_to_string(
+        "email/boss_approval_request.html",
+        {
+            "approval_url": approval_url,
+            "onboarding": onboarding,
+            "entity_type": entity_type,
+            "employee_name": employee.full_name or employee.email,
+            "logo_url": f"{settings.FRONTEND_URL}/radico-logo.png",
+        },
+    )
+    logger.info("Sending boss approval request to %s", to_email)
+    send_graph_email(to_email=to_email, subject=subject, html=html_body)
