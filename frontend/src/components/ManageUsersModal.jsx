@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
@@ -6,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 export default function ManageUsersModal({ onClose }) {
   const toast = useToast()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [users, setUsers] = useState([])
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -46,6 +48,11 @@ export default function ManageUsersModal({ onClose }) {
     setForm({ email: '', full_name: '', password: '', role: 'EMPLOYEE', bosses: [] })
     setError('')
     setShowForm(false)
+  }
+
+  const openUserProfile = (userId) => {
+    onClose()
+    navigate(`/profile/${userId}`)
   }
 
   const handleSubmit = async (event) => {
@@ -181,7 +188,12 @@ export default function ManageUsersModal({ onClose }) {
               </thead>
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <tr
+                    key={user.id}
+                    onClick={() => openUserProfile(user.id)}
+                    style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                    title={`View ${user.full_name || user.email}'s profile`}
+                  >
                     <td style={{ padding: '10px 12px' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text)' }}>{user.full_name || '-'}</div>
                       <div style={{ color: 'var(--muted)', fontSize: 12 }}>{user.email}</div>

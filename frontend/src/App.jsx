@@ -43,6 +43,10 @@ export default function App() {
               element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
             />
             <Route
+              path="/profile/:userId"
+              element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
+            />
+            <Route
               path="/dashboard"
               element={
                 <AdminRoute>

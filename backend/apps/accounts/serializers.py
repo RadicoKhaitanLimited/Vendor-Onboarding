@@ -72,6 +72,43 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         fields = ['full_name', 'email']
 
 
+class UserAdminUpdateSerializer(serializers.ModelSerializer):
+    """Superuser-only account and reporting-hierarchy editor."""
+
+    bosses = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=User.objects.filter(role='BOSS'),
+        required=False,
+    )
+    employees = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=User.objects.filter(role='EMPLOYEE'),
+        required=False,
+    )
+
+    class Meta:
+        model = User
+        fields = ['full_name', 'email', 'role', 'is_active', 'is_superuser', 'bosses', 'employees']
+
+    def validate(self, attrs):
+        role = attrs.get('role', self.instance.role)
+        if role != 'EMPLOYEE':
+            attrs['bosses'] = []
+        if role != 'BOSS':
+            attrs['employees'] = []
+        return attrs
+
+    def update(self, instance, validated_data):
+        bosses = validated_data.pop('bosses', None)
+        employees = validated_data.pop('employees', None)
+        instance = super().update(instance, validated_data)
+        if bosses is not None:
+            instance.bosses.set(bosses)
+        if employees is not None:
+            instance.employees.set(employees)
+        return instance
+
+
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     bosses = serializers.PrimaryKeyRelatedField(

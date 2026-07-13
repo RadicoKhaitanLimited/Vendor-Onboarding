@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import api from '../api/axios'
@@ -23,32 +23,71 @@ function Detail({ label, value }) {
 
 export default function ProfilePage() {
   const { user, logout, updateUser } = useAuth()
+  const { userId } = useParams()
   const toast = useToast()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ full_name: '', email: '' })
+  const [availableUsers, setAvailableUsers] = useState([])
+  const [form, setForm] = useState({
+    full_name: '', email: '', role: 'EMPLOYEE', is_active: true,
+    is_superuser: false, bosses: [], employees: [],
+  })
+  const isOwnProfile = !userId || userId === user?.id
   const canEdit = Boolean(user?.is_superuser)
 
   useEffect(() => {
-    api.get('/auth/profile/')
+    setLoading(true)
+    setLoadError('')
+    const profileRequest = userId
+      ? api.get(`/auth/users/${userId}/`).catch(async () => {
+        const { data: users } = await api.get('/auth/users/')
+        const selectedUser = users.find((candidate) => candidate.id === userId)
+        if (!selectedUser) throw new Error('User not found.')
+        return { data: selectedUser }
+      })
+      : api.get('/auth/profile/')
+
+    profileRequest
       .then(({ data }) => {
         setProfile(data)
-        setForm({ full_name: data.full_name || '', email: data.email || '' })
+        setForm({
+          full_name: data.full_name || '', email: data.email || '', role: data.role,
+          is_active: data.is_active, is_superuser: data.is_superuser,
+          bosses: data.bosses || [],
+          employees: data.employee_details?.map((employee) => employee.id) || [],
+        })
       })
-      .catch(() => toast.error('Unable to load profile details'))
+      .catch((error) => {
+        const message = error.response?.data?.detail || error.message || 'Unable to load profile details.'
+        setLoadError(message)
+        toast.error('Unable to load profile details', message)
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }, [userId])
+
+  useEffect(() => {
+    if (!user?.is_superuser) return
+    api.get('/auth/users/').then(({ data }) => setAvailableUsers(data)).catch(() => {})
+  }, [user?.is_superuser])
 
   const save = async (event) => {
     event.preventDefault()
     setSaving(true)
     try {
-      const { data } = await api.patch('/auth/profile/', form)
+      const { data } = await api.patch(userId ? `/auth/users/${userId}/` : '/auth/profile/', form)
       setProfile(data)
-      setForm({ full_name: data.full_name || '', email: data.email || '' })
-      updateUser({ ...user, full_name: data.full_name, email: data.email })
+      setForm({
+        full_name: data.full_name || '', email: data.email || '', role: data.role,
+        is_active: data.is_active, is_superuser: data.is_superuser,
+        bosses: data.bosses || [],
+        employees: data.employee_details?.map((employee) => employee.id) || [],
+      })
+      if (isOwnProfile) {
+        updateUser({ ...user, full_name: data.full_name, email: data.email })
+      }
       setEditing(false)
       toast.success('Profile updated', 'Your details have been saved.')
     } catch (error) {
@@ -60,7 +99,16 @@ export default function ProfilePage() {
   }
 
   if (loading) return <div className="profile-loading">Loading your profile…</div>
-  if (!profile) return null
+  if (!profile) {
+    return (
+      <main className="profile-loading">
+        <div>
+          <p>{loadError || 'Unable to load profile details.'}</p>
+          <Link to="/dashboard" className="profile-nav-link">Return to dashboard</Link>
+        </div>
+      </main>
+    )
+  }
 
   const initials = (profile.full_name || profile.email || 'U')
     .split(/\s|@/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
@@ -82,7 +130,7 @@ export default function ProfilePage() {
         <div className="profile-orb profile-orb-one" />
         <div className="profile-orb profile-orb-two" />
         <div className="profile-intro">
-          <p className="profile-eyebrow">Your profile</p>
+          <p className="profile-eyebrow">{isOwnProfile ? 'Your profile' : 'User profile'}</p>
           <h1>Account details</h1>
           <p>Your access, role and workspace details — all in one place.</p>
         </div>
@@ -103,6 +151,43 @@ export default function ProfilePage() {
             <form className="profile-edit-form" onSubmit={save}>
               <label>Full name<input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></label>
               <label>Email address<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label>
+              <label>System role
+                <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                  <option value="ADMIN">Administrator</option>
+                  <option value="BOSS">Approver / Manager</option>
+                  <option value="EMPLOYEE">Employee</option>
+                </select>
+              </label>
+              <label>Account status
+                <select value={String(form.is_active)} onChange={(e) => setForm({ ...form, is_active: e.target.value === 'true' })}>
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </label>
+              <label>Access level
+                <select value={String(form.is_superuser)} onChange={(e) => setForm({ ...form, is_superuser: e.target.value === 'true' })}>
+                  <option value="false">Standard access</option>
+                  <option value="true">Superuser</option>
+                </select>
+              </label>
+              {form.role === 'EMPLOYEE' && (
+                <label>Reporting to
+                  <select multiple value={form.bosses} onChange={(e) => setForm({ ...form, bosses: Array.from(e.target.selectedOptions, (option) => option.value) })}>
+                    {availableUsers.filter((candidate) => candidate.role === 'BOSS').map((boss) => (
+                      <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {form.role === 'BOSS' && (
+                <label>Team members
+                  <select multiple value={form.employees} onChange={(e) => setForm({ ...form, employees: Array.from(e.target.selectedOptions, (option) => option.value) })}>
+                    {availableUsers.filter((candidate) => candidate.role === 'EMPLOYEE').map((employee) => (
+                      <option key={employee.id} value={employee.id}>{employee.full_name || employee.email}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <div className="profile-form-actions"><button type="button" onClick={() => setEditing(false)}>Cancel</button><button className="profile-save" disabled={saving}>{saving ? 'Saving…' : 'Save profile'}</button></div>
             </form>
           ) : (

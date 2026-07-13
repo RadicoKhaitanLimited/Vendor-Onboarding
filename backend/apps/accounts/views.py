@@ -7,7 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User
 from .serializers import (
     CustomTokenObtainPairSerializer, ProfileUpdateSerializer,
-    UserSerializer, UserCreateSerializer,
+    UserSerializer, UserCreateSerializer, UserAdminUpdateSerializer,
 )
 
 
@@ -56,10 +56,54 @@ class ProfileView(APIView):
                 {'detail': 'Only superusers can edit profile details.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        serializer = ProfileUpdateSerializer(request.user, data=request.data, partial=True)
+        serializer = UserAdminUpdateSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(UserSerializer(request.user).data)
+
+
+class UserProfileDetailView(APIView):
+    """Read-only profiles for users visible in the management list."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            profile_user = User.objects.prefetch_related('bosses', 'employees').get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        can_view = (
+            request.user.pk == profile_user.pk
+            or request.user.is_superuser
+            or request.user.role == 'ADMIN'
+            or (
+                request.user.role == 'BOSS'
+                and profile_user.role == 'EMPLOYEE'
+                and profile_user.bosses.filter(pk=request.user.pk).exists()
+            )
+        )
+        if not can_view:
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(UserSerializer(profile_user).data)
+
+    def patch(self, request, user_id):
+        if not request.user.is_superuser:
+            return Response(
+                {'detail': 'Only superusers can edit profile details.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            profile_user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UserAdminUpdateSerializer(profile_user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(UserSerializer(profile_user).data)
 
 
 class AdminUsersView(APIView):
