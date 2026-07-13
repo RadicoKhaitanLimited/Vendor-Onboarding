@@ -12,6 +12,7 @@ import SearchTermSelect from './SearchTermSelect'
 import { MSME_REGISTERED_OPTIONS, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
+import { isPanNameEditable } from '../utils/panName'
 
 const INDIAN_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
@@ -57,6 +58,7 @@ const EMPTY_FORM = {
   street3:             '',
   street4:             '',
   pan_number:          '',
+  pan_name:            '',
   gst_applicable:      null,
   gst_number:          '',
   account_holder_name: '',
@@ -113,6 +115,10 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
       e.pan_number = 'Invalid PAN format. Expected: ABCDE1234F'
     }
 
+    if (isPanNameEditable(pan) && shouldRequire('pan_name') && !nextForm.pan_name.trim()) {
+      e.pan_name = 'PAN name is required.'
+    }
+
     if (shouldRequire('gst_applicable') && nextForm.gst_applicable === null) e.gst_applicable = 'Please select GST status.'
     if (nextForm.gst_applicable) {
       const gst = nextForm.gst_number.toUpperCase()
@@ -157,6 +163,9 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
       const nextTouched = { ...prevTouched, [key]: true }
       setForm((prevForm) => {
         const nextForm = { ...prevForm, [key]: value }
+        if ((key === 'company_name' || key === 'pan_number') && !isPanNameEditable(nextForm.pan_number)) {
+          nextForm.pan_name = nextForm.company_name
+        }
         setErrors(validateForm(nextForm, files, nextTouched))
         return nextForm
       })
@@ -238,6 +247,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         street3:             form.street3,
         street4:             form.street4,
         pan_number:          form.pan_number ? form.pan_number.toUpperCase() : '',
+        pan_name:            form.pan_name,
         gst_applicable:      form.gst_applicable ?? false,
         gst_number:          form.gst_applicable ? (form.gst_number ? form.gst_number.toUpperCase() : '') : '',
         account_holder_name: form.account_holder_name,
@@ -460,6 +470,23 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                 className={errors.pan_number ? 'error' : ''} />
               <span className="hint">Format: 5 letters + 4 digits + 1 letter</span>
               {errors.pan_number && <span className="field-error">{errors.pan_number}</span>}
+            </div>
+            <div className="field span-2">
+              <label>PAN Name {isPanNameEditable(form.pan_number) && <span className="req">*</span>}</label>
+              <input
+                type="text"
+                value={form.pan_name}
+                onChange={(e) => set('pan_name', e.target.value)}
+                placeholder="Name as per PAN card"
+                disabled={!isPanNameEditable(form.pan_number)}
+                className={errors.pan_name ? 'error' : ''}
+              />
+              <span className="hint">
+                {isPanNameEditable(form.pan_number)
+                  ? 'Individual/HUF PAN — enter the name exactly as per the PAN card.'
+                  : 'Defaults to company name for this PAN type.'}
+              </span>
+              {errors.pan_name && <span className="field-error">{errors.pan_name}</span>}
             </div>
             <div className="field span-2">
               <label>GST Applicable? <span className="req">*</span></label>

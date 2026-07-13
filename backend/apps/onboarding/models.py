@@ -110,6 +110,7 @@ class Onboarding(models.Model):
 
     # Tax
     pan_number = models.CharField(max_length=10, blank=True)
+    pan_name = models.CharField(max_length=255, blank=True)
     gst_applicable = models.BooleanField(default=False)
     gst_number = models.CharField(max_length=15, blank=True)
 

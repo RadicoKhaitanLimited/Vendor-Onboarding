@@ -12,6 +12,7 @@ import SearchTermSelect from './SearchTermSelect'
 import { MSME_REGISTERED_OPTIONS, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
+import { isPanNameEditable } from '../utils/panName'
 
 
 
@@ -46,6 +47,7 @@ const GST_APPROVAL_STATUS = {
   PENDING: 'pending',
   VALID: 'valid',
   FAILED: 'failed',
+  NOT_APPLICABLE: 'not_applicable',
 }
 
 const hasAny = (value, terms) => {
@@ -63,6 +65,7 @@ const classifyApprovalPanStatus = (record) => {
 }
 
 const classifyApprovalGstStatus = (record) => {
+  if (!record.gst_applicable) return GST_APPROVAL_STATUS.NOT_APPLICABLE
   const status = record.gst_verification_status
   if (!record.gst_number || !status) return GST_APPROVAL_STATUS.PENDING
   if (
@@ -78,10 +81,11 @@ const classifyApprovalGstStatus = (record) => {
 const getApprovalValidationMessages = (record) => {
   const panStatus = classifyApprovalPanStatus(record)
   const gstStatus = classifyApprovalGstStatus(record)
+  const gstPassed = gstStatus === GST_APPROVAL_STATUS.VALID || gstStatus === GST_APPROVAL_STATUS.NOT_APPLICABLE
 
   if (
     panStatus === PAN_APPROVAL_STATUS.VALID_OPERATIVE &&
-    gstStatus === GST_APPROVAL_STATUS.VALID
+    gstPassed
   ) {
     return []
   }
@@ -145,6 +149,10 @@ export default function EditOnboardingModal({
   const [panLoading, setPanLoading] =
     useState(false)
 
+  const [approvalBoss, setApprovalBoss] = useState('')
+  const [sendingToBoss, setSendingToBoss] = useState(false)
+  const bossOptions = user?.role === 'EMPLOYEE' ? (user.boss_details || []) : []
+
   // ── form fields ──────────────────────────────────────────────────
   const [form, setForm] = useState({
     company_name:        data.company_name || '',
@@ -162,6 +170,7 @@ export default function EditOnboardingModal({
     street3:             data.street3 || '',
     street4:             data.street4 || '',
     pan_number:          data.pan_number || '',
+    pan_name:            data.pan_name || data.company_name || '',
     gst_applicable:      data.gst_applicable != null ? data.gst_applicable : null,
     gst_number:          data.gst_number || '',
     account_holder_name: data.account_holder_name || '',
@@ -200,6 +209,7 @@ export default function EditOnboardingModal({
 
     if (!nextForm.state) nextErrors.state = 'State is required.'
     if (!pan || !PAN_RE.test(pan)) nextErrors.pan_number = 'Invalid PAN format. Expected: ABCDE1234F'
+    if (isPanNameEditable(pan) && !String(nextForm.pan_name || '').trim()) nextErrors.pan_name = 'PAN name is required.'
     if (nextForm.gst_applicable === null) nextErrors.gst_applicable = 'Please select GST status.'
     if (nextForm.gst_applicable) {
       if (!gst || !GST_RE.test(gst)) {
@@ -218,12 +228,16 @@ export default function EditOnboardingModal({
   const set = (key, value) => {
     setForm((current) => {
       const next = { ...current, [key]: value }
-      if (['state', 'pan_number', 'gst_applicable', 'gst_number'].includes(key)) {
+      if ((key === 'company_name' || key === 'pan_number') && !isPanNameEditable(next.pan_number)) {
+        next.pan_name = next.company_name
+      }
+      if (['state', 'pan_number', 'pan_name', 'gst_applicable', 'gst_number'].includes(key)) {
         const liveErrors = validateLiveTaxFields(next)
         setErrors((currentErrors) => {
           const cleaned = { ...currentErrors }
           delete cleaned.state
           delete cleaned.pan_number
+          delete cleaned.pan_name
           delete cleaned.gst_applicable
           delete cleaned.gst_number
           return { ...cleaned, ...liveErrors }
@@ -286,6 +300,8 @@ export default function EditOnboardingModal({
     if (!form.street1.trim()) e.street1 = 'Street address is required.'
     if (!form.pan_number || !PAN_RE.test(form.pan_number.toUpperCase()))
       e.pan_number = 'Invalid PAN format. Expected: ABCDE1234F'
+    if (isPanNameEditable(form.pan_number) && !form.pan_name.trim())
+      e.pan_name = 'PAN name is required.'
     if (form.gst_applicable === null) e.gst_applicable = 'Please select GST status.'
     if (form.gst_applicable && (!form.gst_number || !GST_RE.test(form.gst_number.toUpperCase())))
       e.gst_number = 'Invalid GST format. Expected 15-character GSTIN.'
@@ -334,6 +350,7 @@ export default function EditOnboardingModal({
         street3:             form.street3,
         street4:             form.street4,
         pan_number:          form.pan_number ? form.pan_number.toUpperCase() : '',
+        pan_name:            form.pan_name,
         gst_applicable:      form.gst_applicable ?? false,
         gst_number:          form.gst_applicable ? (form.gst_number ? form.gst_number.toUpperCase() : '') : '',
         account_holder_name: form.account_holder_name,
@@ -443,6 +460,44 @@ export default function EditOnboardingModal({
     }
   }
 
+  const handleSendToBoss = async () => {
+    if (!approvalBoss) {
+      toast.error('Select boss', 'Please select the boss for approval.')
+      return
+    }
+
+    const verificationRecord = {
+      ...data,
+      pan_number: form.pan_number,
+      gst_number: form.gst_number,
+      pan_verified: panVerification?.verified ?? data.pan_verified,
+      pan_verification_status: panVerification?.verification_status ?? data.pan_verification_status,
+      gst_verified: gstVerification?.verified ?? data.gst_verified,
+      gst_verification_status: gstVerification?.verification_status ?? data.gst_verification_status,
+    }
+    const verificationMessages = getApprovalValidationMessages(verificationRecord)
+    if (verificationMessages.length) {
+      toast.error('Cannot send to boss', verificationMessages.join(' '))
+      return
+    }
+
+    setSendingToBoss(true)
+    try {
+      await api.post(`/onboarding/${data.id}/send-to-boss/`, { approval_boss: approvalBoss })
+      toast.success('Sent to boss', 'Request has been sent for boss approval.')
+      setApprovalBoss('')
+      onSaved()
+    } catch (err) {
+      const responseData = err.response?.data
+      const validationMessage = responseData && typeof responseData === 'object'
+        ? Object.values(responseData).flat().join(' ')
+        : ''
+      toast.error('Failed', validationMessage || responseData?.detail || 'Could not send request to boss.')
+    } finally {
+      setSendingToBoss(false)
+    }
+  }
+
   const validateDocFile = (file) => {
     const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
     if (!allowed.includes(file.type)) {
@@ -517,7 +572,7 @@ export default function EditOnboardingModal({
           onboarding_id: data.id,
           pan_number: form.pan_number,
           date_of_birth: form.date_of_birth,
-          name: form.company_name
+          name: isPanNameEditable(form.pan_number) ? form.pan_name : form.company_name
         }
       )
 
@@ -600,7 +655,8 @@ export default function EditOnboardingModal({
 
   const entityType = data.onboarding_type === 'VENDOR' ? 'Vendor' : 'Customer'
   const canApprove = ['ADMIN', 'BOSS'].includes(user?.role)
-  const canSave = user?.role === 'ADMIN' || (user?.role === 'EMPLOYEE' && data.status === 'DRAFT')
+  const canSave = user?.role === 'ADMIN'
+    || (['EMPLOYEE', 'BOSS'].includes(user?.role) && data.status !== 'APPROVED')
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -845,6 +901,24 @@ export default function EditOnboardingModal({
 
   </div>
 )}
+
+  <div className="field span-2" style={{ marginTop: 12 }}>
+    <label>PAN Name {isPanNameEditable(form.pan_number) && <span className="req">*</span>}</label>
+    <input
+      type="text"
+      value={form.pan_name}
+      onChange={(e) => set('pan_name', e.target.value)}
+      placeholder="Name as per PAN card"
+      disabled={!isPanNameEditable(form.pan_number)}
+      className={errors.pan_name ? 'error' : ''}
+    />
+    <span className="hint">
+      {isPanNameEditable(form.pan_number)
+        ? 'Individual/HUF PAN — enter the name exactly as per the PAN card.'
+        : 'Defaults to company name for this PAN type.'}
+    </span>
+    {errors.pan_name && <span className="field-error">{errors.pan_name}</span>}
+  </div>
 
 
 
@@ -1193,6 +1267,25 @@ export default function EditOnboardingModal({
             })}
           </div>
         </div>
+
+        {/* ── Send to boss ── */}
+        {user?.role === 'EMPLOYEE' && ['DRAFT', 'PENDING'].includes(data.status) && (
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <div className="card-title"><div className="card-title-icon">✓</div>Send For Boss Approval</div>
+            <div className="field" style={{ marginBottom: '1rem' }}>
+              <label>Select Boss <span className="req">*</span></label>
+              <select value={approvalBoss} onChange={(e) => setApprovalBoss(e.target.value)}>
+                <option value="">Select boss</option>
+                {bossOptions.map((boss) => (
+                  <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
+                ))}
+              </select>
+            </div>
+            <button className="btn btn-primary" onClick={handleSendToBoss} disabled={sendingToBoss}>
+              {sendingToBoss ? <><div className="spinner" /> Sending...</> : 'Send to Boss'}
+            </button>
+          </div>
+        )}
 
         {/* ── Footer ── */}
         {canApprove && data.status !== 'APPROVED' && (

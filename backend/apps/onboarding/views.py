@@ -17,6 +17,7 @@ from .serializers import (
     CreateOnboardingSerializer, ApproveRejectSerializer,
     OnboardingTokenSerializer, VendorReferenceMasterSerializer,
     VendorReferenceLookupSerializer, gst_state_code_for_state,
+    pan_name_is_editable,
 )
 from apps.accounts.models import User
 from apps.notifications.email_service import send_onboarding_invite
@@ -149,6 +150,9 @@ def _validate_required_manual_onboarding_fields(data):
         if not str(data.get(field, '')).strip():
             errors[field] = [message]
 
+    if pan_name_is_editable(data.get('pan_number')) and not str(data.get('pan_name', '')).strip():
+        errors['pan_name'] = ['PAN name is required.']
+
     if not data.get('emails'):
         errors['emails'] = ['At least one email is required.']
     if not data.get('phones'):
@@ -211,6 +215,7 @@ PAN_APPROVAL_FAILED = 'failed'
 GST_APPROVAL_PENDING = 'pending'
 GST_APPROVAL_VALID = 'valid'
 GST_APPROVAL_FAILED = 'failed'
+GST_APPROVAL_NOT_APPLICABLE = 'not_applicable'
 
 
 def _has_any(value, terms):
@@ -232,6 +237,8 @@ def _classify_pan_approval_status(onboarding):
 
 
 def _classify_gst_approval_status(onboarding):
+    if not onboarding.gst_applicable:
+        return GST_APPROVAL_NOT_APPLICABLE
     verification_status = onboarding.gst_verification_status
     if not onboarding.gst_number or not verification_status:
         return GST_APPROVAL_PENDING
@@ -248,8 +255,9 @@ def _classify_gst_approval_status(onboarding):
 def _validate_approval_verifications(onboarding):
     pan_status = _classify_pan_approval_status(onboarding)
     gst_status = _classify_gst_approval_status(onboarding)
+    gst_passed = gst_status in (GST_APPROVAL_VALID, GST_APPROVAL_NOT_APPLICABLE)
 
-    if pan_status == PAN_APPROVAL_VALID_OPERATIVE and gst_status == GST_APPROVAL_VALID:
+    if pan_status == PAN_APPROVAL_VALID_OPERATIVE and gst_passed:
         return []
 
     if pan_status == PAN_APPROVAL_PENDING and gst_status == GST_APPROVAL_PENDING:
@@ -1100,6 +1108,12 @@ class SendToBossView(APIView):
         document_errors = _validate_required_onboarding_documents(onboarding)
         if document_errors:
             return Response(document_errors, status=status.HTTP_400_BAD_REQUEST)
+        approval_messages = _validate_approval_verifications(onboarding)
+        if approval_messages:
+            return Response(
+                {'detail': approval_messages[0], 'messages': approval_messages},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         onboarding.assigned_user = assigned_boss
         onboarding.status = 'PENDING_BOSS_APPROVAL'
@@ -1158,6 +1172,10 @@ class BulkSendToBossView(APIView):
             document_errors = _validate_required_onboarding_documents(onboarding)
             if document_errors:
                 failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': document_errors})
+                continue
+            approval_messages = _validate_approval_verifications(onboarding)
+            if approval_messages:
+                failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': {'detail': approval_messages[0], 'messages': approval_messages}})
                 continue
 
             onboarding.assigned_user = assigned_boss

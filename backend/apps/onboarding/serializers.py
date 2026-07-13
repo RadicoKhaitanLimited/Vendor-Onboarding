@@ -56,6 +56,14 @@ def gst_state_code_for_state(state):
     return GST_STATE_CODES.get(str(state or '').strip(), '')
 
 
+PAN_EDITABLE_HOLDER_TYPES = {'P', 'H'}
+
+
+def pan_name_is_editable(pan_number):
+    normalized = str(pan_number or '').strip().upper()
+    return len(normalized) >= 4 and normalized[3] in PAN_EDITABLE_HOLDER_TYPES
+
+
 def normalize_purchase_org_list(value):
     if isinstance(value, list):
         raw_values = value
@@ -162,6 +170,16 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
 
         pan = current('pan_number', '') or ''
         gst = current('gst_number', '') or ''
+        company_name = current('company_name', '') or ''
+        if pan:
+            if pan_name_is_editable(pan):
+                if self.context.get('require_complete') and not str(current('pan_name', '') or '').strip():
+                    raise serializers.ValidationError({'pan_name': 'PAN name is required.'})
+            else:
+                data['pan_name'] = company_name
+        elif 'pan_name' not in data:
+            data['pan_name'] = company_name
+
         if pan and gst:
             # GST digits 3-12 must match PAN
             if gst[2:12].upper() != pan.upper():

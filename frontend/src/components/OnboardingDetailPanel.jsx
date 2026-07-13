@@ -130,7 +130,7 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
           <div className="empty-state"><div className="empty-icon">⏳</div>Loading…</div>
         ) : data ? (
           <>
-            {user?.role === 'EMPLOYEE' && data.status === 'PENDING' && (
+            {user?.role === 'EMPLOYEE' && ['DRAFT', 'PENDING'].includes(data.status) && (
               <div className="card" style={{ marginBottom: '1rem' }}>
                 <div className="card-title"><div className="card-title-icon">✓</div>Send For Boss Approval</div>
                 <div className="field">

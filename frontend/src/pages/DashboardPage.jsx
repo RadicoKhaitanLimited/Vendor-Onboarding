@@ -31,6 +31,7 @@ const GST_STATUS = {
   NOT_VERIFIED: 'not_verified',
   VALID: 'valid',
   FAILED: 'failed',
+  NOT_APPLICABLE: 'not_applicable',
 }
 
 const hasAny = (value, terms) => {
@@ -48,6 +49,7 @@ const classifyPanStatus = (onboarding) => {
 }
 
 const classifyGstStatus = (onboarding) => {
+  if (!onboarding.gst_applicable) return GST_STATUS.NOT_APPLICABLE
   const status = onboarding.gst_verification_status
   if (!onboarding.gst_number || !status) return GST_STATUS.NOT_VERIFIED
   if (
@@ -68,12 +70,14 @@ const getVerificationRowClass = (onboarding) => {
     return 'verification-row-failed'
   }
 
-  if (panStatus === PAN_STATUS.VALID_OPERATIVE && gstStatus === GST_STATUS.VALID) {
+  const gstOk = gstStatus === GST_STATUS.VALID || gstStatus === GST_STATUS.NOT_APPLICABLE
+
+  if (panStatus === PAN_STATUS.VALID_OPERATIVE && gstOk) {
     return 'verification-row-verified'
   }
 
   const panPassed = panStatus === PAN_STATUS.VALID_OPERATIVE || panStatus === PAN_STATUS.VALID_INOPERATIVE
-  const gstPassed = gstStatus === GST_STATUS.VALID
+  const gstPassed = gstOk
   if (
     (panPassed && gstStatus === GST_STATUS.NOT_VERIFIED) ||
     (panStatus === PAN_STATUS.NOT_VERIFIED && gstPassed)
@@ -94,6 +98,7 @@ const panBadge = (onboarding) => {
 
 const gstBadge = (onboarding) => {
   const status = classifyGstStatus(onboarding)
+  if (status === GST_STATUS.NOT_APPLICABLE) return { label: 'Not Applicable', className: 'badge-mna' }
   if (status === GST_STATUS.NOT_VERIFIED) return { label: 'Not Verified', className: 'badge-warning' }
   if (status === GST_STATUS.VALID) return { label: 'Valid', className: 'badge-success' }
   return { label: 'Invalid / Failed', className: 'badge-danger' }
@@ -175,7 +180,11 @@ export default function DashboardPage() {
 
   const isRowSelectable = (o) => {
     if (user?.role === 'BOSS') return o.status !== 'APPROVED' && o.status !== 'REJECTED'
-    if (user?.role === 'EMPLOYEE') return o.status !== 'APPROVED' && o.status !== 'PENDING_BOSS_APPROVAL'
+    if (user?.role === 'EMPLOYEE') {
+      return o.status !== 'APPROVED'
+        && o.status !== 'PENDING_BOSS_APPROVAL'
+        && getVerificationRowClass(o) === 'verification-row-verified'
+    }
     return false
   }
 
@@ -641,7 +650,16 @@ export default function DashboardPage() {
                   >
                     {(user?.role === 'EMPLOYEE' || user?.role === 'BOSS') && (
                       <td className="select-col" onClick={(event) => event.stopPropagation()}>
-                        <label className={`row-check ${!selectable ? 'row-check-disabled' : ''}`} title={selectable ? '' : 'Already finalized'}>
+                        <label
+                          className={`row-check ${!selectable ? 'row-check-disabled' : ''}`}
+                          title={
+                            selectable
+                              ? ''
+                              : user?.role === 'EMPLOYEE'
+                                ? 'PAN and GST must both be verified before sending to boss'
+                                : 'Already finalized'
+                          }
+                        >
                           <input
                             type="checkbox"
                             checked={isSelected}

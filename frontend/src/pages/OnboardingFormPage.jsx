@@ -5,6 +5,7 @@ import MultiEntryField from '../components/MultiEntryField'
 import FileUploadField from '../components/FileUploadField'
 import { MSME_REGISTERED_OPTIONS, formatMsmeOption, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
+import { isPanNameEditable } from '../utils/panName'
 
 const STEPS = [
   { id: 1, label: 'Basic Info' },
@@ -91,6 +92,7 @@ export default function OnboardingFormPage() {
     street3: '',
     street4: '',
     pan_number: '',
+    pan_name: '',
     gst_applicable: null,
     gst_number: '',
     account_holder_name: '',
@@ -128,6 +130,7 @@ export default function OnboardingFormPage() {
             street3: ob.street3 || '',
             street4: ob.street4 || '',
             pan_number: ob.pan_number || '',
+            pan_name: ob.pan_name || ob.company_name || '',
             gst_applicable: ob.gst_applicable != null ? ob.gst_applicable : null,
             gst_number: ob.gst_number || '',
             account_holder_name: ob.account_holder_name || '',
@@ -169,6 +172,10 @@ export default function OnboardingFormPage() {
       if (shouldRequire('pan_number')) e.pan_number = 'Invalid PAN format. Expected: ABCDE1234F'
     } else if (!PAN_RE.test(pan)) {
       e.pan_number = 'Invalid PAN format. Expected: ABCDE1234F'
+    }
+
+    if (isPanNameEditable(pan) && shouldRequire('pan_name') && !nextForm.pan_name.trim()) {
+      e.pan_name = 'PAN name is required.'
     }
 
     if (shouldRequire('gst_applicable') && nextForm.gst_applicable === null) e.gst_applicable = 'Please select GST status.'
@@ -222,6 +229,7 @@ export default function OnboardingFormPage() {
       pincode: true,
       street1: true,
       pan_number: true,
+      pan_name: true,
       gst_applicable: true,
       gst_number: true,
       account_holder_name: true,
@@ -249,6 +257,9 @@ export default function OnboardingFormPage() {
       const nextTouched = { ...prevTouched, [key]: true }
       setForm((prevForm) => {
         const nextForm = { ...prevForm, [key]: value }
+        if ((key === 'company_name' || key === 'pan_number') && !isPanNameEditable(nextForm.pan_number)) {
+          nextForm.pan_name = nextForm.company_name
+        }
         setErrors(validateForm(nextForm, files, nextTouched))
         return nextForm
       })
@@ -298,6 +309,7 @@ export default function OnboardingFormPage() {
     street3: form.street3,
     street4: form.street4,
     pan_number: form.pan_number.toUpperCase(),
+    pan_name: form.pan_name,
     gst_applicable: form.gst_applicable,
     gst_number: form.gst_applicable ? form.gst_number.toUpperCase() : '',
     account_holder_name: form.account_holder_name,
@@ -320,7 +332,7 @@ export default function OnboardingFormPage() {
 
   // ── Step 2 validation ──
   const validateStep2 = () => {
-    const e = pickErrors(validateAll(), ['pan_number', 'gst_applicable', 'gst_number', 'account_holder_name', 'bank_name', 'branch_name', 'account_number', 'ifsc_code'])
+    const e = pickErrors(validateAll(), ['pan_number', 'pan_name', 'gst_applicable', 'gst_number', 'account_holder_name', 'bank_name', 'branch_name', 'account_number', 'ifsc_code'])
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -565,6 +577,24 @@ export default function OnboardingFormPage() {
                   />
                   <span className="hint">Format: 5 letters + 4 digits + 1 letter</span>
                   {errors.pan_number && <span className="field-error">{errors.pan_number}</span>}
+                </div>
+
+                <div className="field span-2">
+                  <label>PAN Name {isPanNameEditable(form.pan_number) && <span className="req">*</span>}</label>
+                  <input
+                    type="text"
+                    value={form.pan_name}
+                    onChange={(e) => set('pan_name', e.target.value)}
+                    placeholder="Name as per PAN card"
+                    disabled={isReadOnly || !isPanNameEditable(form.pan_number)}
+                    className={errors.pan_name ? 'error' : ''}
+                  />
+                  <span className="hint">
+                    {isPanNameEditable(form.pan_number)
+                      ? 'Individual/HUF PAN — enter the name exactly as per the PAN card.'
+                      : 'Defaults to company name for this PAN type.'}
+                  </span>
+                  {errors.pan_name && <span className="field-error">{errors.pan_name}</span>}
                 </div>
 
                 <div className="field span-2">
@@ -820,6 +850,7 @@ export default function OnboardingFormPage() {
               <div className="card-title"><div className="card-title-icon">🏛️</div>Review — Tax & Bank</div>
               <div className="summary-grid">
                 <div className="summary-row"><span className="summary-key">PAN</span><span className="summary-val mono">{form.pan_number}</span></div>
+                <div className="summary-row"><span className="summary-key">PAN Name</span><span className="summary-val">{form.pan_name}</span></div>
                 <div className="summary-row"><span className="summary-key">GST</span><span className="summary-val mono">{form.gst_applicable ? form.gst_number : 'Not Applicable'}</span></div>
                 <div className="summary-row"><span className="summary-key">Account Holder</span><span className="summary-val">{form.account_holder_name}</span></div>
                 <div className="summary-row"><span className="summary-key">Bank</span><span className="summary-val">{form.bank_name}</span></div>
