@@ -4,7 +4,7 @@ from .models import (
     PaymentTermMaster, PurchaseOrganizationMaster, CompanyCodeMaster,
     TDSCodeMaster, SearchTermMaster,
     SalesOrganizationMaster, DistributionChannelMaster, DivisionMaster,
-    TransportationZoneMaster, CustomerCompanyCodeMaster,
+    TransportationZoneMaster, CustomerCompanyCodeMaster, CustomerSearchTermMaster,
 )
 
 
@@ -106,4 +106,11 @@ class TransportationZoneMasterAdmin(admin.ModelAdmin):
 class CustomerCompanyCodeMasterAdmin(admin.ModelAdmin):
     list_display = ['company_code', 'name', 'updated_at']
     search_fields = ['company_code', 'name']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(CustomerSearchTermMaster)
+class CustomerSearchTermMasterAdmin(admin.ModelAdmin):
+    list_display = ['search_term', 'applicable_for', 'updated_at']
+    search_fields = ['search_term', 'applicable_for']
     readonly_fields = ['created_at', 'updated_at']

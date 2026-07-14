@@ -140,14 +140,16 @@ class Onboarding(models.Model):
     payment_terms = models.CharField(max_length=50, blank=True)
     tds_codes = models.CharField(max_length=255, blank=True)
 
-    # Sales Area (Customer)
-    sales_organization = models.CharField(max_length=50, blank=True)
-    distribution_channel = models.CharField(max_length=50, blank=True)
-    division = models.CharField(max_length=50, blank=True)
-
     # SAP / ERP Reference (Customer)
+    sales_reference_orgs = models.JSONField(default=list, blank=True)
+    customer_search_term = models.CharField(max_length=50, blank=True)
     transportation_zone = models.CharField(max_length=50, blank=True)
     customer_company_code = models.CharField(max_length=20, blank=True)
+
+    # Sales Area (Customer)
+    sales_organization = models.JSONField(default=list, blank=True)
+    distribution_channel = models.CharField(max_length=50, blank=True)
+    division = models.CharField(max_length=50, blank=True)
 
     # Workflow
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='DRAFT')
@@ -495,3 +497,22 @@ class CustomerCompanyCodeMaster(models.Model):
 
     def __str__(self):
         return f"{self.company_code} - {self.name}"
+
+
+class CustomerSearchTermMaster(models.Model):
+    search_term = models.CharField(max_length=50, unique=True)
+    applicable_for = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'customer_search_term_masters'
+        ordering = ['search_term']
+
+    def clean(self):
+        self.search_term = self.search_term.strip().upper()
+        if not self.search_term:
+            raise ValidationError({'search_term': 'Search term is required.'})
+
+    def __str__(self):
+        return f"{self.search_term} - {self.applicable_for}"

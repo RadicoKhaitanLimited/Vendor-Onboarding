@@ -13,7 +13,7 @@ from .models import (
     PurchaseOrganizationMaster, CompanyCodeMaster, TDSCodeMaster,
     SearchTermMaster, OnboardingApprovalHistory,
     SalesOrganizationMaster, DistributionChannelMaster, DivisionMaster,
-    TransportationZoneMaster, CustomerCompanyCodeMaster,
+    TransportationZoneMaster, CustomerCompanyCodeMaster, CustomerSearchTermMaster,
     VENDOR_REFERENCE_RANGES, get_vendor_reference_range_for_code,
 )
 from .serializers import (
@@ -1518,6 +1518,21 @@ class CustomerCompanyCodeListView(APIView):
                 'name': company_code.name,
             }
             for company_code in company_codes
+        ])
+
+
+class CustomerSearchTermListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        search_terms = CustomerSearchTermMaster.objects.order_by('search_term')
+        return Response([
+            {
+                'value': search_term.search_term,
+                'label': f'{search_term.search_term} - {search_term.applicable_for}',
+                'applicable_for': search_term.applicable_for,
+            }
+            for search_term in search_terms
         ])
 
 
