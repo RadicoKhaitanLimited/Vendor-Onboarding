@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../api/axios'
 import MultiSelectDropdown from './MultiCheckSelect'
 
-export default function SalesOrganizationSelect({ value = [], onChange, restrictTo }) {
+export default function SalesReferenceOrgSelect({ value = [], onChange }) {
   const [salesOrganizations, setSalesOrganizations] = useState([])
 
   useEffect(() => {
@@ -11,17 +11,12 @@ export default function SalesOrganizationSelect({ value = [], onChange, restrict
       .catch(() => setSalesOrganizations([]))
   }, [])
 
-  const options = restrictTo?.length
-    ? salesOrganizations.filter((salesOrganization) => restrictTo.includes(salesOrganization.value))
-    : salesOrganizations
-
   return (
     <MultiSelectDropdown
-      options={options}
+      options={salesOrganizations}
       value={value}
       onChange={onChange}
-      placeholder="-- Select sales organization(s) --"
-      emptyMessage={restrictTo?.length ? 'Select a Sales Reference Org first.' : 'No matching options.'}
+      placeholder="-- Select sales reference org(s) --"
     />
   )
 }

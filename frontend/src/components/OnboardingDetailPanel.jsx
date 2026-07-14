@@ -180,11 +180,13 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
                 <SummaryRow label="Reference Name" value={data.reference_name} />
                 <SummaryRow label="GL Account Number" value={data.gl_account_number} mono />
                 <SummaryRow label="GL Account Description" value={data.gl_account_description} />
-                {isCustomer && <SummaryRow label="Sales Organization" value={data.sales_organization} />}
+                {isCustomer && <SummaryRow label="Sales Reference Org" value={data.sales_reference_orgs?.join(', ')} mono />}
+                {isCustomer && <SummaryRow label="Search Term" value={data.customer_search_term} mono />}
+                {isCustomer && <SummaryRow label="Company Code" value={data.customer_company_code} mono />}
+                {isCustomer && <SummaryRow label="Sales Organization" value={data.sales_organization?.join(', ')} mono />}
                 {isCustomer && <SummaryRow label="Distribution Channel" value={data.distribution_channel} />}
                 {isCustomer && <SummaryRow label="Division" value={data.division} />}
                 {isCustomer && <SummaryRow label="Transportation Zone" value={data.transportation_zone} />}
-                {isCustomer && <SummaryRow label="Company Code" value={data.customer_company_code} mono />}
                 {!isCustomer && <SummaryRow label="Reference Purchase Orgs" value={data.reference_purchase_orgs?.join(', ')} mono />}
                 {!isCustomer && <SummaryRow label="Search Term" value={data.search_term} mono />}
                 {!isCustomer && <SummaryRow label="Purchase Org. to Open" value={data.purchase_orgs_to_open} mono />}

@@ -14,6 +14,8 @@ import DistributionChannelSelect from './DistributionChannelSelect'
 import DivisionSelect from './DivisionSelect'
 import TransportationZoneSelect from './TransportationZoneSelect'
 import CustomerCompanyCodeSelect from './CustomerCompanyCodeSelect'
+import CustomerSearchTermSelect from './CustomerSearchTermSelect'
+import SalesReferenceOrgSelect from './SalesReferenceOrgSelect'
 import { MSME_REGISTERED_OPTIONS, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
@@ -197,7 +199,9 @@ export default function EditOnboardingModal({
     company_code_to_open:     data.company_code_to_open || '',
     payment_terms:            data.payment_terms || '',
     tds_codes:                data.tds_codes || '',
-    sales_organization:       data.sales_organization || '',
+    sales_reference_orgs:     data.sales_reference_orgs || [],
+    customer_search_term:     data.customer_search_term || '',
+    sales_organization:       data.sales_organization || [],
     distribution_channel:     data.distribution_channel || '',
     division:                 data.division || '',
     transportation_zone:      data.transportation_zone || '',
@@ -264,6 +268,14 @@ export default function EditOnboardingModal({
       purchase_orgs_to_open: selectedValues.join(', '),
       reference_purchase_orgs: selectedValues,
       company_code_to_open: companyCodeForPurchaseOrg(firstSelectedValue),
+    }))
+  }
+  const setSalesReferenceOrgs = (value) => {
+    const selectedValues = Array.isArray(value) ? value : []
+    setForm((f) => ({
+      ...f,
+      sales_reference_orgs: selectedValues,
+      sales_organization: selectedValues,
     }))
   }
   const applyVendorReferenceMapping = (mapping) => {
@@ -385,7 +397,9 @@ export default function EditOnboardingModal({
         company_code_to_open:     form.company_code_to_open,
         payment_terms:            form.payment_terms,
         tds_codes:                form.tds_codes,
-        sales_organization:       isCustomer ? form.sales_organization : '',
+        sales_reference_orgs:     isCustomer ? form.sales_reference_orgs : [],
+        customer_search_term:     isCustomer ? form.customer_search_term : '',
+        sales_organization:       isCustomer ? form.sales_organization : [],
         distribution_channel:     isCustomer ? form.distribution_channel : '',
         division:                 isCustomer ? form.division : '',
         transportation_zone:      isCustomer ? form.transportation_zone : '',
@@ -1195,13 +1209,33 @@ export default function EditOnboardingModal({
               isCustomer={isCustomer}
             />
             {isCustomer && (
+              <div className="field">
+                <label>Sales Reference Org</label>
+                <SalesReferenceOrgSelect value={form.sales_reference_orgs} onChange={setSalesReferenceOrgs} />
+              </div>
+            )}
+            {isCustomer && (
+              <div className="field">
+                <label>Search Term</label>
+                <CustomerSearchTermSelect value={form.customer_search_term} onChange={(value) => set('customer_search_term', value)} />
+              </div>
+            )}
+            {isCustomer && (
               <div className="field span-2">
                 <div className="sales-area-card">
                   <div className="card-title">Sales Area</div>
                   <div className="grid-2">
                     <div className="field">
+                      <label>Company Code</label>
+                      <CustomerCompanyCodeSelect value={form.customer_company_code} onChange={(value) => set('customer_company_code', value)} />
+                    </div>
+                    <div className="field">
                       <label>Sales Organization</label>
-                      <SalesOrganizationSelect value={form.sales_organization} onChange={(value) => set('sales_organization', value)} />
+                      <SalesOrganizationSelect
+                        value={form.sales_organization}
+                        onChange={(value) => set('sales_organization', value)}
+                        restrictTo={form.sales_reference_orgs}
+                      />
                     </div>
                     <div className="field">
                       <label>Distribution Channel</label>
@@ -1219,12 +1253,6 @@ export default function EditOnboardingModal({
               <div className="field">
                 <label>Transportation Zone</label>
                 <TransportationZoneSelect value={form.transportation_zone} onChange={(value) => set('transportation_zone', value)} />
-              </div>
-            )}
-            {isCustomer && (
-              <div className="field">
-                <label>Company Code</label>
-                <CustomerCompanyCodeSelect value={form.customer_company_code} onChange={(value) => set('customer_company_code', value)} />
               </div>
             )}
             {!isCustomer && (
