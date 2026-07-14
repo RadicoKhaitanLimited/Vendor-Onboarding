@@ -731,6 +731,17 @@ input:read-only, select:disabled { background: var(--bg); color: var(--muted); c
   box-shadow: 0 1px 0 rgba(255,255,255,.32) inset, 0 10px 22px rgba(201,168,76,.3);
 }
 .btn-verify:disabled { opacity: .55; cursor: not-allowed; }
+.verification-button { position: relative; overflow: hidden; isolation: isolate; min-width: 148px; justify-content: center; transition: transform .2s var(--ease), box-shadow .2s var(--ease), color .2s var(--ease), background .2s var(--ease); }
+.verification-button::after { content: ''; position: absolute; z-index: -1; inset: 0; background: linear-gradient(105deg, transparent 28%, rgba(255,255,255,.58) 48%, transparent 68%); transform: translateX(-140%); }
+.verification-button:not(:disabled):hover::after { animation: verifySweep .8s ease-out; }
+.verification-button.is-verifying { color: #fff; border-color: #B8912A; background: linear-gradient(135deg, #a57516, #d4af37, #bd8b25); box-shadow: 0 0 0 3px rgba(212,175,55,.14), 0 12px 26px rgba(184,145,42,.3); animation: verifyPulse 1.35s ease-in-out infinite; }
+.verification-button.is-verifying::after { animation: verifySweep 1.05s linear infinite; }
+.verification-button.is-verified { color: #176b3a; border-color: #72c994; background: linear-gradient(135deg, #effcf3, #d9f7e2); box-shadow: 0 7px 18px rgba(22,163,74,.15); animation: verifySuccess .5s var(--ease-out); }
+.verify-spinner { width: 14px; height: 14px; margin-right: 2px; border: 2px solid rgba(255,255,255,.38); border-top-color: #fff; border-radius: 50%; animation: verifySpin .7s linear infinite; }
+@keyframes verifySweep { from { transform: translateX(-140%); } to { transform: translateX(140%); } }
+@keyframes verifyPulse { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1px) scale(1.015); } }
+@keyframes verifySpin { to { transform: rotate(360deg); } }
+@keyframes verifySuccess { 0% { transform: scale(.94); } 70% { transform: scale(1.045); } 100% { transform: scale(1); } }
 .btn-danger { background: var(--danger); color: #fff; }
 .btn-danger:hover { background: #991B1B; }
 .btn-success { background: var(--success); color: #fff; }
@@ -1383,6 +1394,19 @@ th.select-col .row-check-box { border-color: #B9C4D6; }
   padding: 11px 12px;
   color: var(--muted);
   font-size: 12px;
+}
+
+/* ── Sales Area (nested card) ── */
+.sales-area-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #FAFBFD;
+  padding: 12px;
+}
+.sales-area-card .card-title {
+  border-bottom: none;
+  padding: 0;
+  margin: 0 0 10px;
 }
 
 /* ── Summary ── */

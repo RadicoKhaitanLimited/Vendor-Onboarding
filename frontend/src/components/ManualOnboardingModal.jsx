@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
-import { useAuth } from '../context/AuthContext'
 import MultiEntryField from './MultiEntryField'
 import VendorReferenceLookupFields from './VendorReferenceLookupFields'
 import PaymentTermsSelect from './PaymentTermsSelect'
@@ -9,6 +8,11 @@ import PurchaseOrganizationFields from './PurchaseOrganizationFields'
 import CompanyCodeSelect from './CompanyCodeSelect'
 import TDSCodeSelect from './TDSCodeSelect'
 import SearchTermSelect from './SearchTermSelect'
+import SalesOrganizationSelect from './SalesOrganizationSelect'
+import DistributionChannelSelect from './DistributionChannelSelect'
+import DivisionSelect from './DivisionSelect'
+import TransportationZoneSelect from './TransportationZoneSelect'
+import CustomerCompanyCodeSelect from './CustomerCompanyCodeSelect'
 import { MSME_REGISTERED_OPTIONS, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
@@ -80,26 +84,28 @@ const EMPTY_FORM = {
   company_code_to_open:    '',
   payment_terms:           '',
   tds_codes:               '',
-  approval_boss:           '',
+  sales_organization:      '',
+  distribution_channel:    '',
+  division:                '',
+  transportation_zone:     '',
+  customer_company_code:   '',
 }
 
 export default function ManualOnboardingModal({ onClose, onCreated }) {
   const toast = useToast()
-  const { user } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [files, setFiles] = useState({ PAN: null, GST: null, CHEQUE: null, MSME: null })
-  const bossOptions = user?.role === 'EMPLOYEE' ? (user.boss_details || []) : []
+  const [extraDocs, setExtraDocs] = useState([])
 
   const validateForm = (nextForm, nextFiles, nextTouched = touched, showAll = submitAttempted) => {
     const e = {}
     const shouldRequire = (field) => showAll || nextTouched[field]
 
     if (shouldRequire('onboarding_type') && !nextForm.onboarding_type) e.onboarding_type = 'Please select Vendor or Customer.'
-    if (user?.role === 'EMPLOYEE' && shouldRequire('approval_boss') && !nextForm.approval_boss) e.approval_boss = 'Please select the boss for approval.'
     if (shouldRequire('company_name') && !nextForm.company_name.trim()) e.company_name = 'Company name is required.'
     if (shouldRequire('emails') && !nextForm.emails.filter(Boolean).length) e.emails = 'At least one email is required.'
     if (shouldRequire('phones') && !nextForm.phones.filter(Boolean).length) e.phones = 'At least one phone number is required.'
@@ -134,26 +140,32 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
       }
     }
 
-    if (shouldRequire('account_holder_name') && !nextForm.account_holder_name.trim()) e.account_holder_name = 'Account holder name is required.'
-    if (shouldRequire('bank_name') && !nextForm.bank_name) e.bank_name = 'Bank name is required.'
-    if (shouldRequire('branch_name') && !nextForm.branch_name.trim()) e.branch_name = 'Branch name is required.'
-    if (shouldRequire('account_number') && !nextForm.account_number.trim()) e.account_number = 'Account number is required.'
-    if (!nextForm.ifsc_code) {
-      if (shouldRequire('ifsc_code')) e.ifsc_code = 'Invalid IFSC format.'
-    } else if (!IFSC_RE.test(nextForm.ifsc_code.toUpperCase())) {
-      e.ifsc_code = 'Invalid IFSC format.'
-    }
+    const isCustomer = nextForm.onboarding_type === 'CUSTOMER'
 
-    if (shouldRequire('msme_applicable') && nextForm.msme_applicable === null) e.msme_applicable = 'Please select MSME status.'
-    if (nextForm.msme_applicable) {
-      if (shouldRequire('msme_category') && !nextForm.msme_category) e.msme_category = 'MSME category is required.'
-      if (shouldRequire('udyam_number') && !nextForm.udyam_number.trim()) e.udyam_number = 'Udyam registration number is required.'
+    if (!isCustomer) {
+      if (shouldRequire('account_holder_name') && !nextForm.account_holder_name.trim()) e.account_holder_name = 'Account holder name is required.'
+      if (shouldRequire('bank_name') && !nextForm.bank_name) e.bank_name = 'Bank name is required.'
+      if (shouldRequire('branch_name') && !nextForm.branch_name.trim()) e.branch_name = 'Branch name is required.'
+      if (shouldRequire('account_number') && !nextForm.account_number.trim()) e.account_number = 'Account number is required.'
+      if (!nextForm.ifsc_code) {
+        if (shouldRequire('ifsc_code')) e.ifsc_code = 'Invalid IFSC format.'
+      } else if (!IFSC_RE.test(nextForm.ifsc_code.toUpperCase())) {
+        e.ifsc_code = 'Invalid IFSC format.'
+      }
+
+      if (shouldRequire('msme_applicable') && nextForm.msme_applicable === null) e.msme_applicable = 'Please select MSME status.'
+      if (nextForm.msme_applicable) {
+        if (shouldRequire('msme_category') && !nextForm.msme_category) e.msme_category = 'MSME category is required.'
+        if (shouldRequire('udyam_number') && !nextForm.udyam_number.trim()) e.udyam_number = 'Udyam registration number is required.'
+      }
     }
 
     if (shouldRequire('pan_doc') && !nextFiles.PAN) e.pan_doc = 'PAN Card document is required.'
     if (nextForm.gst_applicable && shouldRequire('gst_doc') && !nextFiles.GST) e.gst_doc = 'GST Certificate is required.'
-    if (shouldRequire('cheque_doc') && !nextFiles.CHEQUE) e.cheque_doc = 'Cancelled cheque is required.'
-    if (nextForm.msme_applicable && shouldRequire('msme_doc') && !nextFiles.MSME) e.msme_doc = 'MSME Certificate is required.'
+    if (!isCustomer) {
+      if (shouldRequire('cheque_doc') && !nextFiles.CHEQUE) e.cheque_doc = 'Cancelled cheque is required.'
+      if (nextForm.msme_applicable && shouldRequire('msme_doc') && !nextFiles.MSME) e.msme_doc = 'MSME Certificate is required.'
+    }
 
     return e
   }
@@ -226,6 +238,23 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
     })
   }
 
+  const addExtraDoc = () => {
+    setExtraDocs((prev) => [...prev, { id: `new-${Date.now()}-${Math.random()}`, label: '', file: null }])
+  }
+  const updateExtraDoc = (id, patch) => {
+    setExtraDocs((prev) => prev.map((doc) => (doc.id === id ? { ...doc, ...patch } : doc)))
+  }
+  const removeExtraDoc = (id) => {
+    setExtraDocs((prev) => prev.filter((doc) => doc.id !== id))
+  }
+  const handleExtraFileChange = (id, file) => {
+    if (!file) return
+    const allowed = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+    if (!allowed.includes(file.type)) { toast.error('Invalid file', 'Only PDF, JPG, PNG allowed.'); return }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Too large', 'File must be under 10 MB.'); return }
+    updateExtraDoc(id, { file })
+  }
+
   const handleSubmit = async () => {
     if (!validate()) return
     setSubmitting(true)
@@ -250,15 +279,15 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         pan_name:            form.pan_name,
         gst_applicable:      form.gst_applicable ?? false,
         gst_number:          form.gst_applicable ? (form.gst_number ? form.gst_number.toUpperCase() : '') : '',
-        account_holder_name: form.account_holder_name,
-        bank_name:           form.bank_name,
-        branch_name:         form.branch_name,
-        account_number:      form.account_number,
-        ifsc_code:           form.ifsc_code ? form.ifsc_code.toUpperCase() : '',
-        msme_applicable:          form.msme_applicable ?? false,
-        msme_status:              form.msme_applicable ? normalizeMsmeCode(form.msme_category) : 'MNA',
-        msme_category:            form.msme_applicable ? normalizeMsmeCode(form.msme_category) : '',
-        udyam_number:             form.msme_applicable ? form.udyam_number : '',
+        account_holder_name: isCustomer ? '' : form.account_holder_name,
+        bank_name:           isCustomer ? '' : form.bank_name,
+        branch_name:         isCustomer ? '' : form.branch_name,
+        account_number:      isCustomer ? '' : form.account_number,
+        ifsc_code:           isCustomer ? '' : (form.ifsc_code ? form.ifsc_code.toUpperCase() : ''),
+        msme_applicable:          isCustomer ? false : (form.msme_applicable ?? false),
+        msme_status:              !isCustomer && form.msme_applicable ? normalizeMsmeCode(form.msme_category) : 'MNA',
+        msme_category:            !isCustomer && form.msme_applicable ? normalizeMsmeCode(form.msme_category) : '',
+        udyam_number:             !isCustomer && form.msme_applicable ? form.udyam_number : '',
         reference_vendor_code:    form.reference_vendor_code,
         vendor_reference_range:   form.vendor_reference_range,
         reference_name:           form.reference_name,
@@ -270,7 +299,11 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         company_code_to_open:     form.company_code_to_open,
         payment_terms:            form.payment_terms,
         tds_codes:                form.tds_codes,
-        approval_boss:            form.approval_boss,
+        sales_organization:       isCustomer ? form.sales_organization : '',
+        distribution_channel:     isCustomer ? form.distribution_channel : '',
+        division:                 isCustomer ? form.division : '',
+        transportation_zone:      isCustomer ? form.transportation_zone : '',
+        customer_company_code:    isCustomer ? form.customer_company_code : '',
       })
 
       // 2. Upload selected documents
@@ -284,10 +317,19 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
             headers: { 'Content-Type': undefined },
           })
         })
+      extraDocs.filter((doc) => doc.file).forEach((doc) => {
+        const fd = new FormData()
+        fd.append('document_type', 'OTHER')
+        if (doc.label) fd.append('label', doc.label)
+        fd.append('file', doc.file)
+        uploads.push(api.post(`/documents/admin/${onboarding.id}/`, fd, {
+          headers: { 'Content-Type': undefined },
+        }))
+      })
       if (uploads.length) await Promise.all(uploads)
 
       const label = form.onboarding_type === 'VENDOR' ? 'Vendor' : 'Customer'
-      toast.success('Created', `${label} ${onboarding.onboarding_code} created successfully.`)
+      toast.success('Draft created', `${label} ${onboarding.onboarding_code} is ready for verification before approval.`)
       onCreated()
     } catch (err) {
       const errData = err.response?.data
@@ -304,6 +346,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
 
   const entityType = form.onboarding_type === 'VENDOR' ? 'Vendor'
     : form.onboarding_type === 'CUSTOMER' ? 'Customer' : ''
+  const isCustomer = form.onboarding_type === 'CUSTOMER'
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -351,22 +394,6 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
           </div>
           {errors.onboarding_type && <span className="field-error" style={{ marginTop: 6, display: 'block' }}>{errors.onboarding_type}</span>}
         </div>
-
-        {user?.role === 'EMPLOYEE' && (
-          <div className="card manual-card" style={{ marginBottom: '1rem' }}>
-            <div className="card-title"><div className="card-title-icon">✓</div>Approval Boss</div>
-            <div className="field">
-              <label>Send For Approval To <span className="req">*</span></label>
-              <select value={form.approval_boss} onChange={(e) => set('approval_boss', e.target.value)} className={errors.approval_boss ? 'error' : ''}>
-                <option value="">Select boss</option>
-                {bossOptions.map((boss) => (
-                  <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
-                ))}
-              </select>
-              {errors.approval_boss && <span className="field-error">{errors.approval_boss}</span>}
-            </div>
-          </div>
-        )}
 
         {/* ── Company & Contact ── */}
         <div className="card manual-card" style={{ marginBottom: '1rem' }}>
@@ -518,6 +545,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {/* ── Bank Account ── */}
+        {!isCustomer && (
         <div className="card manual-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏦</div>Bank Account Details</div>
           <div className="grid-2">
@@ -558,8 +586,10 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
             </div>
           </div>
         </div>
+        )}
 
         {/* ── MSME ── */}
+        {!isCustomer && (
         <div className="card manual-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏅</div>MSME Status</div>
           <div className="field" style={{ marginBottom: '1rem' }}>
@@ -600,6 +630,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
             </div>
           )}
         </div>
+        )}
 
         {/* ── SAP / ERP Reference Details ── */}
         <div className="card manual-card" style={{ marginBottom: '1rem' }}>
@@ -610,29 +641,65 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
               onCodeChange={(value) => set('reference_vendor_code', value)}
               onRangeChange={(value) => set('vendor_reference_range', value)}
               onMappingChange={applyVendorReferenceMapping}
+              isCustomer={isCustomer}
             />
-            <PurchaseOrganizationFields
-              referenceValue={form.reference_purchase_orgs}
-              onReferenceChange={(value) => set('reference_purchase_orgs', value)}
-              openValue={form.purchase_orgs_to_open}
-              onOpenChange={setCreatedPurchaseOrgs}
-              searchTermField={
-                <div className="field">
-                  <label>Search Term</label>
-                  <SearchTermSelect value={form.search_term} onChange={(value) => set('search_term', value)} />
+            {isCustomer && (
+              <div className="field span-2">
+                <div className="sales-area-card">
+                  <div className="card-title">Sales Area</div>
+                  <div className="grid-2">
+                    <div className="field">
+                      <label>Sales Organization</label>
+                      <SalesOrganizationSelect value={form.sales_organization} onChange={(value) => set('sales_organization', value)} />
+                    </div>
+                    <div className="field">
+                      <label>Distribution Channel</label>
+                      <DistributionChannelSelect value={form.distribution_channel} onChange={(value) => set('distribution_channel', value)} />
+                    </div>
+                    <div className="field">
+                      <label>Division</label>
+                      <DivisionSelect value={form.division} onChange={(value) => set('division', value)} />
+                    </div>
+                  </div>
                 </div>
-              }
-              companyCodeField={
-                <div className="field">
-                  <label>Company Code (In which to be opened)</label>
-                  <CompanyCodeSelect
-                    value={form.company_code_to_open}
-                    onChange={(value) => set('company_code_to_open', value)}
-                    disabled={!!form.reference_purchase_orgs.length}
-                  />
-                </div>
-              }
-            />
+              </div>
+            )}
+            {isCustomer && (
+              <div className="field">
+                <label>Transportation Zone</label>
+                <TransportationZoneSelect value={form.transportation_zone} onChange={(value) => set('transportation_zone', value)} />
+              </div>
+            )}
+            {isCustomer && (
+              <div className="field">
+                <label>Company Code</label>
+                <CustomerCompanyCodeSelect value={form.customer_company_code} onChange={(value) => set('customer_company_code', value)} />
+              </div>
+            )}
+            {!isCustomer && (
+              <PurchaseOrganizationFields
+                referenceValue={form.reference_purchase_orgs}
+                onReferenceChange={(value) => set('reference_purchase_orgs', value)}
+                openValue={form.purchase_orgs_to_open}
+                onOpenChange={setCreatedPurchaseOrgs}
+                searchTermField={
+                  <div className="field">
+                    <label>Search Term</label>
+                    <SearchTermSelect value={form.search_term} onChange={(value) => set('search_term', value)} />
+                  </div>
+                }
+                companyCodeField={
+                  <div className="field">
+                    <label>Company Code (In which to be opened)</label>
+                    <CompanyCodeSelect
+                      value={form.company_code_to_open}
+                      onChange={(value) => set('company_code_to_open', value)}
+                      disabled={!!form.reference_purchase_orgs.length}
+                    />
+                  </div>
+                }
+              />
+            )}
             <div className="field">
               <label>Payment Terms</label>
               <select value={form.payment_terms} onChange={(e) => set('payment_terms', e.target.value)}>
@@ -640,10 +707,12 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                 <PaymentTermsSelect />
               </select>
             </div>
-            <div className="field">
-              <label>TDS Codes</label>
-              <TDSCodeSelect value={form.tds_codes} onChange={(value) => set('tds_codes', value)} />
-            </div>
+            {!isCustomer && (
+              <div className="field">
+                <label>TDS Codes</label>
+                <TDSCodeSelect value={form.tds_codes} onChange={(value) => set('tds_codes', value)} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -656,7 +725,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
             </span>
           </div>
           <div className="doc-section">
-            {DOC_TYPES.map(({ type, label, icon }) => {
+            {DOC_TYPES.filter(({ type }) => !isCustomer || (type !== 'CHEQUE' && type !== 'MSME')).map(({ type, label, icon }) => {
               const file = files[type]
               return (
                   <div key={type} className="doc-card">
@@ -699,7 +768,48 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                 </div>
               )
             })}
+
+            {extraDocs.map((doc) => (
+              <div key={doc.id} className="doc-card">
+                <div className="doc-card-head">
+                  <div className="doc-card-title">📎 Additional Document</div>
+                  <button className="file-remove" onClick={() => removeExtraDoc(doc.id)}>✕</button>
+                </div>
+                <input
+                  type="text"
+                  value={doc.label}
+                  onChange={(e) => updateExtraDoc(doc.id, { label: e.target.value })}
+                  placeholder="Document name (e.g. Board Resolution)"
+                  style={{ marginBottom: 8 }}
+                />
+                {doc.file ? (
+                  <>
+                    <div className="file-selected" style={{ marginBottom: 8 }}>
+                      <span>📄</span>
+                      <span className="file-name">{doc.file.name}</span>
+                      <button className="file-remove" onClick={() => updateExtraDoc(doc.id, { file: null })}>✕</button>
+                    </div>
+                    <label style={{ cursor: 'pointer', fontSize: 11, color: 'var(--brand)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', padding: '3px 10px', background: 'var(--brand-light)', borderRadius: 6, border: '1px solid rgba(26,86,219,.15)' }}>
+                      Replace
+                      <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
+                        onChange={(e) => { handleExtraFileChange(doc.id, e.target.files?.[0]); e.target.value = '' }} />
+                    </label>
+                  </>
+                ) : (
+                  <div className="file-upload-zone" style={{ padding: 14 }}>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => { handleExtraFileChange(doc.id, e.target.files?.[0]); e.target.value = '' }} />
+                    <div className="file-icon" style={{ fontSize: 20, marginBottom: 4 }}>📄</div>
+                    <div className="file-label"><span>Click to upload</span> or drag & drop</div>
+                    <div className="file-sub">PDF, JPG, PNG · Max 10 MB</div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
+          <button type="button" className="btn btn-secondary" style={{ marginTop: 12 }} onClick={addExtraDoc}>
+            + Add Document
+          </button>
         </div>
 
         {/* ── Footer ── */}

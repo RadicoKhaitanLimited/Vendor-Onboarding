@@ -3,6 +3,8 @@ from .models import (
     Onboarding, OnboardingToken, VendorReferenceMaster,
     PaymentTermMaster, PurchaseOrganizationMaster, CompanyCodeMaster,
     TDSCodeMaster, SearchTermMaster,
+    SalesOrganizationMaster, DistributionChannelMaster, DivisionMaster,
+    TransportationZoneMaster, CustomerCompanyCodeMaster,
 )
 
 
@@ -69,4 +71,39 @@ class TDSCodeMasterAdmin(admin.ModelAdmin):
 class SearchTermMasterAdmin(admin.ModelAdmin):
     list_display = ['search_term', 'applicable_for', 'updated_at']
     search_fields = ['search_term', 'applicable_for']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(SalesOrganizationMaster)
+class SalesOrganizationMasterAdmin(admin.ModelAdmin):
+    list_display = ['sales_organization', 'description', 'updated_at']
+    search_fields = ['sales_organization', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(DistributionChannelMaster)
+class DistributionChannelMasterAdmin(admin.ModelAdmin):
+    list_display = ['distribution_channel', 'description', 'updated_at']
+    search_fields = ['distribution_channel', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(DivisionMaster)
+class DivisionMasterAdmin(admin.ModelAdmin):
+    list_display = ['division', 'description', 'updated_at']
+    search_fields = ['division', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(TransportationZoneMaster)
+class TransportationZoneMasterAdmin(admin.ModelAdmin):
+    list_display = ['zone', 'description', 'updated_at']
+    search_fields = ['zone', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(CustomerCompanyCodeMaster)
+class CustomerCompanyCodeMasterAdmin(admin.ModelAdmin):
+    list_display = ['company_code', 'name', 'updated_at']
+    search_fields = ['company_code', 'name']
     readonly_fields = ['created_at', 'updated_at']

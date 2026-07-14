@@ -140,6 +140,15 @@ class Onboarding(models.Model):
     payment_terms = models.CharField(max_length=50, blank=True)
     tds_codes = models.CharField(max_length=255, blank=True)
 
+    # Sales Area (Customer)
+    sales_organization = models.CharField(max_length=50, blank=True)
+    distribution_channel = models.CharField(max_length=50, blank=True)
+    division = models.CharField(max_length=50, blank=True)
+
+    # SAP / ERP Reference (Customer)
+    transportation_zone = models.CharField(max_length=50, blank=True)
+    customer_company_code = models.CharField(max_length=20, blank=True)
+
     # Workflow
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='DRAFT')
     created_by = models.ForeignKey(
@@ -391,3 +400,98 @@ class SearchTermMaster(models.Model):
 
     def __str__(self):
         return f"{self.search_term} - {self.applicable_for}"
+
+
+class SalesOrganizationMaster(models.Model):
+    sales_organization = models.CharField(max_length=20, unique=True)
+    description = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sales_organization_masters'
+        ordering = ['sales_organization']
+
+    def clean(self):
+        self.sales_organization = self.sales_organization.strip().upper()
+        if not self.sales_organization:
+            raise ValidationError({'sales_organization': 'Sales organization is required.'})
+
+    def __str__(self):
+        return f"{self.sales_organization} - {self.description}"
+
+
+class DistributionChannelMaster(models.Model):
+    distribution_channel = models.CharField(max_length=20, unique=True)
+    description = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'distribution_channel_masters'
+        ordering = ['distribution_channel']
+
+    def clean(self):
+        self.distribution_channel = self.distribution_channel.strip().upper()
+        if not self.distribution_channel:
+            raise ValidationError({'distribution_channel': 'Distribution channel is required.'})
+
+    def __str__(self):
+        return f"{self.distribution_channel} - {self.description}"
+
+
+class DivisionMaster(models.Model):
+    division = models.CharField(max_length=20, unique=True)
+    description = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'division_masters'
+        ordering = ['division']
+
+    def clean(self):
+        self.division = self.division.strip().upper()
+        if not self.division:
+            raise ValidationError({'division': 'Division is required.'})
+
+    def __str__(self):
+        return f"{self.division} - {self.description}"
+
+
+class TransportationZoneMaster(models.Model):
+    zone = models.CharField(max_length=50, unique=True)
+    description = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'transportation_zone_masters'
+        ordering = ['zone']
+
+    def clean(self):
+        self.zone = self.zone.strip().upper()
+        if not self.zone:
+            raise ValidationError({'zone': 'Zone is required.'})
+
+    def __str__(self):
+        return f"{self.zone} - {self.description}"
+
+
+class CustomerCompanyCodeMaster(models.Model):
+    company_code = models.CharField(max_length=20, unique=True)
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'customer_company_code_masters'
+        ordering = ['company_code']
+
+    def clean(self):
+        self.company_code = self.company_code.strip().upper()
+        if not self.company_code:
+            raise ValidationError({'company_code': 'Company code is required.'})
+
+    def __str__(self):
+        return f"{self.company_code} - {self.name}"

@@ -54,12 +54,15 @@ class AdminDocumentUploadView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         doc_type = serializer.validated_data['document_type']
+        label = serializer.validated_data.get('label', '')
         file = serializer.validated_data['file']
 
-        Document.objects.filter(onboarding=onboarding, document_type=doc_type).delete()
+        if doc_type != 'OTHER':
+            Document.objects.filter(onboarding=onboarding, document_type=doc_type).delete()
         doc = Document.objects.create(
             onboarding=onboarding,
             document_type=doc_type,
+            label=label,
             file=file,
             original_filename=file.name,
         )
@@ -73,9 +76,13 @@ class AdminDocumentUploadView(APIView):
             return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
         if not _can_mutate_documents(request.user, onboarding):
             return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+        doc_id = request.query_params.get('id')
+        if doc_id:
+            Document.objects.filter(onboarding_id=onboarding_id, id=doc_id).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         doc_type = request.query_params.get('type')
         if not doc_type:
-            return Response({'detail': "'type' query param required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': "'type' or 'id' query param required."}, status=status.HTTP_400_BAD_REQUEST)
         Document.objects.filter(onboarding_id=onboarding_id, document_type=doc_type).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -102,14 +109,17 @@ class DocumentUploadView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         doc_type = serializer.validated_data['document_type']
+        label = serializer.validated_data.get('label', '')
         file = serializer.validated_data['file']
 
-        # Replace if already uploaded
-        Document.objects.filter(onboarding=onboarding, document_type=doc_type).delete()
+        # Replace if already uploaded (single-slot types only)
+        if doc_type != 'OTHER':
+            Document.objects.filter(onboarding=onboarding, document_type=doc_type).delete()
 
         doc = Document.objects.create(
             onboarding=onboarding,
             document_type=doc_type,
+            label=label,
             file=file,
             original_filename=file.name,
         )

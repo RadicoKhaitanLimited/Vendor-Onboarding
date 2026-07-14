@@ -7,7 +7,9 @@ from .views import (
     VendorReferenceRangeListView, VendorReferenceMasterListCreateView,
     VendorReferenceMasterDetailView, VendorReferenceLookupView, PaymentTermListView,
     PurchaseOrganizationListView, CompanyCodeListView, TDSCodeListView,
-    SearchTermListView,VerifyPANAPIView,VerifyPANAPIView,VerifyGSTAPIView
+    SearchTermListView,VerifyPANAPIView,VerifyPANAPIView,VerifyGSTAPIView,
+    SalesOrganizationListView, DistributionChannelListView, DivisionListView,
+    TransportationZoneListView, CustomerCompanyCodeListView,
 )
 
 urlpatterns = [
@@ -38,6 +40,11 @@ urlpatterns = [
     path('company-codes/', CompanyCodeListView.as_view(), name='company_code_list'),
     path('tds-codes/', TDSCodeListView.as_view(), name='tds_code_list'),
     path('search-terms/', SearchTermListView.as_view(), name='search_term_list'),
+    path('sales-organizations/', SalesOrganizationListView.as_view(), name='sales_organization_list'),
+    path('distribution-channels/', DistributionChannelListView.as_view(), name='distribution_channel_list'),
+    path('divisions/', DivisionListView.as_view(), name='division_list'),
+    path('transportation-zones/', TransportationZoneListView.as_view(), name='transportation_zone_list'),
+    path('customer-company-codes/', CustomerCompanyCodeListView.as_view(), name='customer_company_code_list'),
     # path('verify-pan/', VerifyPANAPIView.as_view(),name='verify-pan'),
     path("verify-pan/",VerifyPANAPIView.as_view(), name="verify-pan"),
     path("verify-gst/", VerifyGSTAPIView.as_view(), name="verify-gst"),

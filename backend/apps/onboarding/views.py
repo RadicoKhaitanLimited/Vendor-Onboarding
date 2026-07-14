@@ -12,6 +12,8 @@ from .models import (
     Onboarding, OnboardingToken, VendorReferenceMaster, PaymentTermMaster,
     PurchaseOrganizationMaster, CompanyCodeMaster, TDSCodeMaster,
     SearchTermMaster, OnboardingApprovalHistory,
+    SalesOrganizationMaster, DistributionChannelMaster, DivisionMaster,
+    TransportationZoneMaster, CustomerCompanyCodeMaster,
     VENDOR_REFERENCE_RANGES, get_vendor_reference_range_for_code,
 )
 from .serializers import (
@@ -149,18 +151,22 @@ def _selected_approval_boss(user, data):
 
 def _validate_required_manual_onboarding_fields(data):
     errors = {}
+    is_customer = str(data.get('onboarding_type', '') or '').strip().upper() == 'CUSTOMER'
     required_text_fields = {
         'company_name': 'Company name is required.',
         'city': 'City is required.',
         'state': 'State is required.',
         'street1': 'Street address is required.',
         'pan_number': 'PAN number is required.',
-        'account_holder_name': 'Account holder name is required.',
-        'bank_name': 'Bank name is required.',
-        'branch_name': 'Branch name is required.',
-        'account_number': 'Account number is required.',
-        'ifsc_code': 'IFSC code is required.',
     }
+    if not is_customer:
+        required_text_fields.update({
+            'account_holder_name': 'Account holder name is required.',
+            'bank_name': 'Bank name is required.',
+            'branch_name': 'Branch name is required.',
+            'account_number': 'Account number is required.',
+            'ifsc_code': 'IFSC code is required.',
+        })
     for field, message in required_text_fields.items():
         if not str(data.get(field, '')).strip():
             errors[field] = [message]
@@ -182,28 +188,31 @@ def _validate_required_manual_onboarding_fields(data):
     elif data.get('gst_applicable') and not str(data.get('gst_number', '')).strip():
         errors['gst_number'] = ['GST number is required.']
 
-    if data.get('msme_applicable') is None:
-        errors['msme_applicable'] = ['Please select MSME status.']
-    elif data.get('msme_applicable'):
-        if not str(data.get('msme_category', '')).strip():
-            errors['msme_category'] = ['MSME category is required.']
-        if not str(data.get('udyam_number', '')).strip():
-            errors['udyam_number'] = ['Udyam registration number is required.']
+    if not is_customer:
+        if data.get('msme_applicable') is None:
+            errors['msme_applicable'] = ['Please select MSME status.']
+        elif data.get('msme_applicable'):
+            if not str(data.get('msme_category', '')).strip():
+                errors['msme_category'] = ['MSME category is required.']
+            if not str(data.get('udyam_number', '')).strip():
+                errors['udyam_number'] = ['Udyam registration number is required.']
 
     return errors
 
 
 def _validate_required_onboarding_documents(onboarding):
     existing_types = set(onboarding.documents.values_list('document_type', flat=True))
+    is_customer = str(getattr(onboarding, 'onboarding_type', '') or '').strip().upper() == 'CUSTOMER'
     errors = {}
     if 'PAN' not in existing_types:
         errors['pan_doc'] = ['PAN Card document is required.']
     if onboarding.gst_applicable and 'GST' not in existing_types:
         errors['gst_doc'] = ['GST Certificate is required.']
-    if 'CHEQUE' not in existing_types:
-        errors['cheque_doc'] = ['Cancelled cheque is required.']
-    if onboarding.msme_applicable and 'MSME' not in existing_types:
-        errors['msme_doc'] = ['MSME Certificate is required.']
+    if not is_customer:
+        if 'CHEQUE' not in existing_types:
+            errors['cheque_doc'] = ['Cancelled cheque is required.']
+        if onboarding.msme_applicable and 'MSME' not in existing_types:
+            errors['msme_doc'] = ['MSME Certificate is required.']
     return errors
 
 
@@ -646,23 +655,24 @@ class ManualOnboardingView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        assigned_boss, boss_error = _selected_approval_boss(request.user, request.data)
-        if boss_error:
-            return Response(boss_error, status=status.HTTP_400_BAD_REQUEST)
-        next_status = 'PENDING_BOSS_APPROVAL' if request.user.role == 'EMPLOYEE' else 'PENDING'
+        # Employee-created records must first complete their verifications and
+        # required documents. They are sent to the boss only through the
+        # guarded send-to-boss endpoint once every condition is green.
+        next_status = 'DRAFT' if request.user.role == 'EMPLOYEE' else 'PENDING'
         onboarding = serializer.save(
             created_by=request.user,
-            assigned_user=assigned_boss,
+            assigned_user=None,
             status=next_status,
         )
         OnboardingApprovalHistory.objects.create(
             onboarding=onboarding,
             action='SUBMITTED',
             actor=request.user,
-            comments='Submitted for boss approval.' if assigned_boss else 'Submitted for approval.',
+            comments=(
+                'Saved as draft. Complete all verifications and documents before sending to the boss.'
+                if request.user.role == 'EMPLOYEE' else 'Submitted for approval.'
+            ),
         )
-        if assigned_boss:
-            _notify_boss_of_approval_request(onboarding, assigned_boss, request.user)
         return Response(OnboardingDetailSerializer(onboarding).data, status=status.HTTP_201_CREATED)
 
 
@@ -1433,6 +1443,81 @@ class SearchTermListView(APIView):
                 'applicable_for': search_term.applicable_for,
             }
             for search_term in search_terms
+        ])
+
+
+class SalesOrganizationListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        sales_organizations = SalesOrganizationMaster.objects.order_by('sales_organization')
+        return Response([
+            {
+                'value': sales_organization.sales_organization,
+                'label': f'{sales_organization.sales_organization} - {sales_organization.description}',
+                'description': sales_organization.description,
+            }
+            for sales_organization in sales_organizations
+        ])
+
+
+class DistributionChannelListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        distribution_channels = DistributionChannelMaster.objects.order_by('distribution_channel')
+        return Response([
+            {
+                'value': distribution_channel.distribution_channel,
+                'label': f'{distribution_channel.distribution_channel} - {distribution_channel.description}',
+                'description': distribution_channel.description,
+            }
+            for distribution_channel in distribution_channels
+        ])
+
+
+class DivisionListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        divisions = DivisionMaster.objects.order_by('division')
+        return Response([
+            {
+                'value': division.division,
+                'label': f'{division.division} - {division.description}',
+                'description': division.description,
+            }
+            for division in divisions
+        ])
+
+
+class TransportationZoneListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        zones = TransportationZoneMaster.objects.order_by('zone')
+        return Response([
+            {
+                'value': zone.zone,
+                'label': f'{zone.zone} - {zone.description}',
+                'description': zone.description,
+            }
+            for zone in zones
+        ])
+
+
+class CustomerCompanyCodeListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        company_codes = CustomerCompanyCodeMaster.objects.order_by('company_code')
+        return Response([
+            {
+                'value': company_code.company_code,
+                'label': f'{company_code.company_code} - {company_code.name}',
+                'name': company_code.name,
+            }
+            for company_code in company_codes
         ])
 
 

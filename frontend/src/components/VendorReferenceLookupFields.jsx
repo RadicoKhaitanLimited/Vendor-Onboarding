@@ -6,7 +6,9 @@ export default function VendorReferenceLookupFields({
   onCodeChange,
   onRangeChange,
   onMappingChange,
+  isCustomer,
 }) {
+  const referenceLabel = isCustomer ? 'Customer Reference' : 'Vendor Reference'
   const [lookupValue, setLookupValue] = useState(code || '')
   const [loading, setLoading] = useState(false)
   const [mapping, setMapping] = useState(null)
@@ -39,7 +41,7 @@ export default function VendorReferenceLookupFields({
       } catch (error) {
         setMapping(null)
         onMappingChange?.(null)
-        setMessage(error.response?.data?.detail || 'No Vendor Reference Master mapping found for this value.')
+        setMessage(error.response?.data?.detail || `No ${referenceLabel} Master mapping found for this value.`)
       } finally {
         setLoading(false)
       }
@@ -51,7 +53,7 @@ export default function VendorReferenceLookupFields({
   return (
     <div className="vendor-ref-result span-2">
       <div className="field vendor-ref-range-field">
-        <label>Vendor Reference Code</label>
+        <label>{referenceLabel} Code</label>
         <input
           type="text"
           value={lookupValue}
@@ -60,13 +62,13 @@ export default function VendorReferenceLookupFields({
             onCodeChange?.(event.target.value)
             onRangeChange?.('')
           }}
-          placeholder="Enter vendor reference code"
+          placeholder={`Enter ${referenceLabel.toLowerCase()} code`}
           style={{ fontFamily: 'var(--mono)' }}
         />
       </div>
 
       <div className="vendor-ref-result-head">
-        <span>Vendor Reference Master</span>
+        <span>{referenceLabel} Master</span>
         {loading && <strong>Fetching...</strong>}
         {!loading && mapping && <strong>Matched {mapping.vendor_reference_range_display}</strong>}
         {!loading && !mapping && message && <strong className="warn">Pending</strong>}
@@ -100,7 +102,7 @@ export default function VendorReferenceLookupFields({
           </div>
         </div>
       ) : (
-        <div className="vendor-ref-empty">{message || 'Enter a Vendor Reference Code to fetch GL details.'}</div>
+        <div className="vendor-ref-empty">{message || `Enter a ${referenceLabel} Code to fetch GL details.`}</div>
       )}
     </div>
   )

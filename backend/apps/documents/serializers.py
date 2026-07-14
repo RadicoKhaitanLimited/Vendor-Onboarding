@@ -7,7 +7,7 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'document_type', 'original_filename', 'file_url', 'uploaded_at']
+        fields = ['id', 'document_type', 'label', 'original_filename', 'file_url', 'uploaded_at']
 
     def get_file_url(self, obj):
         request = self.context.get('request')
@@ -17,9 +17,11 @@ class DocumentSerializer(serializers.ModelSerializer):
 
 
 class DocumentUploadSerializer(serializers.ModelSerializer):
+    label = serializers.CharField(required=False, allow_blank=True, max_length=100)
+
     class Meta:
         model = Document
-        fields = ['document_type', 'file']
+        fields = ['document_type', 'label', 'file']
 
     def validate_file(self, value):
         allowed_types = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']

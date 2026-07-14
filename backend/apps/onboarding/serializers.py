@@ -194,18 +194,23 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
                 })
         if self.context.get('require_complete'):
             errors = {}
+            onboarding_type = str(current('onboarding_type', '') or '').strip().upper()
+            is_customer = onboarding_type == 'CUSTOMER'
             required_text_fields = {
                 'company_name': 'Company name is required.',
                 'city': 'City is required.',
                 'state': 'State is required.',
                 'street1': 'Street address is required.',
                 'pan_number': 'PAN number is required.',
-                'account_holder_name': 'Account holder name is required.',
-                'bank_name': 'Bank name is required.',
-                'branch_name': 'Branch name is required.',
-                'account_number': 'Account number is required.',
-                'ifsc_code': 'IFSC code is required.',
             }
+            if not is_customer:
+                required_text_fields.update({
+                    'account_holder_name': 'Account holder name is required.',
+                    'bank_name': 'Bank name is required.',
+                    'branch_name': 'Branch name is required.',
+                    'account_number': 'Account number is required.',
+                    'ifsc_code': 'IFSC code is required.',
+                })
             for field, message in required_text_fields.items():
                 if not str(current(field, '') or '').strip():
                     errors[field] = [message]
@@ -224,7 +229,7 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
             if current('gst_applicable', False) and not str(current('gst_number', '') or '').strip():
                 errors['gst_number'] = ['GST number is required.']
 
-            if current('msme_applicable', False):
+            if not is_customer and current('msme_applicable', False):
                 if not str(current('msme_category', '') or '').strip():
                     errors['msme_category'] = ['MSME category is required.']
                 if not str(current('udyam_number', '') or '').strip():

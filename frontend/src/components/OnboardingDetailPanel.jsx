@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
-import { useAuth } from '../context/AuthContext'
 import EditOnboardingModal from './EditOnboardingModal'
 import { formatMsmeOption } from '../constants/msme'
 
@@ -39,13 +38,11 @@ function yesNo(value) {
 
 export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
   const toast = useToast()
-  const { user } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showEdit, setShowEdit] = useState(false)
-  const [approvalBoss, setApprovalBoss] = useState('')
-  const [sendingToBoss, setSendingToBoss] = useState(false)
-  const bossOptions = user?.role === 'EMPLOYEE' ? (user.boss_details || []) : []
+
+  const isCustomer = data?.onboarding_type !== 'VENDOR'
 
   const loadData = () => {
     api.get(`/onboarding/${id}/`)
@@ -61,30 +58,6 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
     setLoading(true)
     loadData()
     onUpdated()
-  }
-
-  const handleSendToBoss = async () => {
-    if (!approvalBoss) {
-      toast.error('Select boss', 'Please select the boss for approval.')
-      return
-    }
-    setSendingToBoss(true)
-    try {
-      await api.post(`/onboarding/${data.id}/send-to-boss/`, { approval_boss: approvalBoss })
-      toast.success('Sent to boss', 'Request has been sent for boss approval.')
-      setApprovalBoss('')
-      setLoading(true)
-      loadData()
-      onUpdated()
-    } catch (err) {
-      const responseData = err.response?.data
-      const validationMessage = responseData && typeof responseData === 'object'
-        ? Object.values(responseData).flat().join(' ')
-        : ''
-      toast.error('Failed', validationMessage || responseData?.detail || 'Could not send request to boss.')
-    } finally {
-      setSendingToBoss(false)
-    }
   }
 
   return (
@@ -130,24 +103,6 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
           <div className="empty-state"><div className="empty-icon">⏳</div>Loading…</div>
         ) : data ? (
           <>
-            {user?.role === 'EMPLOYEE' && ['DRAFT', 'PENDING'].includes(data.status) && (
-              <div className="card" style={{ marginBottom: '1rem' }}>
-                <div className="card-title"><div className="card-title-icon">✓</div>Send For Boss Approval</div>
-                <div className="field">
-                  <label>Select Boss <span className="req">*</span></label>
-                  <select value={approvalBoss} onChange={(e) => setApprovalBoss(e.target.value)}>
-                    <option value="">Select boss</option>
-                    {bossOptions.map((boss) => (
-                      <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
-                    ))}
-                  </select>
-                </div>
-                <button className="btn btn-primary" onClick={handleSendToBoss} disabled={sendingToBoss}>
-                  {sendingToBoss ? <><div className="spinner" /> Sending...</> : 'Send to Boss'}
-                </button>
-              </div>
-            )}
-
             {/* Company */}
             <div className="card" style={{ marginBottom: '1rem' }}>
               <div className="card-title"><div className="card-title-icon">🏢</div>Company Information</div>
@@ -178,7 +133,7 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
 
             {/* Tax & Bank */}
             <div className="card" style={{ marginBottom: '1rem' }}>
-              <div className="card-title"><div className="card-title-icon">🏛️</div>Tax & Bank</div>
+              <div className="card-title"><div className="card-title-icon">🏛️</div>Tax{!isCustomer ? ' & Bank' : ''}</div>
               <div className="summary-grid">
                 <SummaryRow label="PAN" value={data.pan_number} mono />
                 <SummaryRow label="DOB / Commencement" value={formatDate(data.date_of_birth)} />
@@ -188,15 +143,20 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
                 <SummaryRow label="PAN Status" value={data.pan_verification_status} />
                 <SummaryRow label="GST Verified" value={yesNo(data.gst_verified)} />
                 <SummaryRow label="GST Status" value={data.gst_verification_status} />
-                <SummaryRow label="Bank" value={data.bank_name} />
-                <SummaryRow label="Branch" value={data.branch_name} />
-                <SummaryRow label="Account No." value={data.account_number} mono />
-                <SummaryRow label="IFSC" value={data.ifsc_code} mono />
-                <SummaryRow label="Holder Name" value={data.account_holder_name} />
+                {!isCustomer && (
+                  <>
+                    <SummaryRow label="Bank" value={data.bank_name} />
+                    <SummaryRow label="Branch" value={data.branch_name} />
+                    <SummaryRow label="Account No." value={data.account_number} mono />
+                    <SummaryRow label="IFSC" value={data.ifsc_code} mono />
+                    <SummaryRow label="Holder Name" value={data.account_holder_name} />
+                  </>
+                )}
               </div>
             </div>
 
             {/* MSME */}
+            {!isCustomer && (
             <div className="card" style={{ marginBottom: '1rem' }}>
               <div className="card-title"><div className="card-title-icon">🏅</div>MSME</div>
               <div className="summary-grid">
@@ -209,22 +169,28 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
                 )}
               </div>
             </div>
+            )}
 
             {/* SAP / ERP */}
             <div className="card" style={{ marginBottom: '1rem' }}>
               <div className="card-title"><div className="card-title-icon">#</div>SAP / ERP Reference Details</div>
               <div className="summary-grid">
-                <SummaryRow label="Vendor Reference Code" value={data.reference_vendor_code} mono />
-                <SummaryRow label="Vendor Reference Range" value={data.vendor_reference_range} mono />
+                <SummaryRow label={isCustomer ? 'Customer Reference Code' : 'Vendor Reference Code'} value={data.reference_vendor_code} mono />
+                <SummaryRow label={isCustomer ? 'Customer Reference Range' : 'Vendor Reference Range'} value={data.vendor_reference_range} mono />
                 <SummaryRow label="Reference Name" value={data.reference_name} />
                 <SummaryRow label="GL Account Number" value={data.gl_account_number} mono />
                 <SummaryRow label="GL Account Description" value={data.gl_account_description} />
-                <SummaryRow label="Reference Purchase Orgs" value={data.reference_purchase_orgs?.join(', ')} mono />
-                <SummaryRow label="Search Term" value={data.search_term} mono />
-                <SummaryRow label="Purchase Org. to Open" value={data.purchase_orgs_to_open} mono />
-                <SummaryRow label="Company Code to Open" value={data.company_code_to_open} mono />
+                {isCustomer && <SummaryRow label="Sales Organization" value={data.sales_organization} />}
+                {isCustomer && <SummaryRow label="Distribution Channel" value={data.distribution_channel} />}
+                {isCustomer && <SummaryRow label="Division" value={data.division} />}
+                {isCustomer && <SummaryRow label="Transportation Zone" value={data.transportation_zone} />}
+                {isCustomer && <SummaryRow label="Company Code" value={data.customer_company_code} mono />}
+                {!isCustomer && <SummaryRow label="Reference Purchase Orgs" value={data.reference_purchase_orgs?.join(', ')} mono />}
+                {!isCustomer && <SummaryRow label="Search Term" value={data.search_term} mono />}
+                {!isCustomer && <SummaryRow label="Purchase Org. to Open" value={data.purchase_orgs_to_open} mono />}
+                {!isCustomer && <SummaryRow label="Company Code to Open" value={data.company_code_to_open} mono />}
                 <SummaryRow label="Payment Terms" value={data.payment_terms} mono />
-                <SummaryRow label="TDS Codes" value={data.tds_codes} mono />
+                {!isCustomer && <SummaryRow label="TDS Codes" value={data.tds_codes} mono />}
               </div>
             </div>
 
@@ -260,7 +226,7 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
           flex: 1
         }}
       >
-        {doc.document_type}
+        {doc.document_type === 'OTHER' ? (doc.label || 'Additional Document') : doc.document_type}
       </span>
 
       <span

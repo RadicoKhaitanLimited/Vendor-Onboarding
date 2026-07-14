@@ -106,6 +106,7 @@ export default function OnboardingFormPage() {
   })
 
   const [files, setFiles] = useState({ PAN: null, GST: null, CHEQUE: null, MSME: null })
+  const [extraDocs, setExtraDocs] = useState([])
 
   useEffect(() => {
     publicApi.get(`/onboarding/form/${token}/`)
@@ -151,6 +152,7 @@ export default function OnboardingFormPage() {
   }, [token])
 
   const entityType = getEntityType(tokenData, location.search)
+  const isCustomer = entityType === 'Customer'
   const registrationTitle = `${entityType} Registration`
   const isApproved = tokenData?.onboarding?.status === 'APPROVED'
   const hasDocument = (docType, nextFiles = files) => Boolean(nextFiles[docType] || tokenData?.onboarding?.documents?.some((doc) => doc.document_type === docType))
@@ -193,26 +195,30 @@ export default function OnboardingFormPage() {
       }
     }
 
-    if (shouldRequire('account_holder_name') && !nextForm.account_holder_name.trim()) e.account_holder_name = 'Account holder name is required.'
-    if (shouldRequire('bank_name') && !nextForm.bank_name) e.bank_name = 'Bank name is required.'
-    if (shouldRequire('branch_name') && !nextForm.branch_name.trim()) e.branch_name = 'Branch name is required.'
-    if (shouldRequire('account_number') && !nextForm.account_number.trim()) e.account_number = 'Account number is required.'
-    if (!nextForm.ifsc_code) {
-      if (shouldRequire('ifsc_code')) e.ifsc_code = 'Invalid IFSC format.'
-    } else if (!IFSC_RE.test(nextForm.ifsc_code.toUpperCase())) {
-      e.ifsc_code = 'Invalid IFSC format.'
-    }
+    if (!isCustomer) {
+      if (shouldRequire('account_holder_name') && !nextForm.account_holder_name.trim()) e.account_holder_name = 'Account holder name is required.'
+      if (shouldRequire('bank_name') && !nextForm.bank_name) e.bank_name = 'Bank name is required.'
+      if (shouldRequire('branch_name') && !nextForm.branch_name.trim()) e.branch_name = 'Branch name is required.'
+      if (shouldRequire('account_number') && !nextForm.account_number.trim()) e.account_number = 'Account number is required.'
+      if (!nextForm.ifsc_code) {
+        if (shouldRequire('ifsc_code')) e.ifsc_code = 'Invalid IFSC format.'
+      } else if (!IFSC_RE.test(nextForm.ifsc_code.toUpperCase())) {
+        e.ifsc_code = 'Invalid IFSC format.'
+      }
 
-    if (shouldRequire('msme_applicable') && nextForm.msme_applicable === null) e.msme_applicable = 'Please select MSME status.'
-    if (nextForm.msme_applicable) {
-      if (shouldRequire('msme_category') && !nextForm.msme_category) e.msme_category = 'MSME category is required.'
-      if (shouldRequire('udyam_number') && !nextForm.udyam_number.trim()) e.udyam_number = 'Udyam registration number is required.'
+      if (shouldRequire('msme_applicable') && nextForm.msme_applicable === null) e.msme_applicable = 'Please select MSME status.'
+      if (nextForm.msme_applicable) {
+        if (shouldRequire('msme_category') && !nextForm.msme_category) e.msme_category = 'MSME category is required.'
+        if (shouldRequire('udyam_number') && !nextForm.udyam_number.trim()) e.udyam_number = 'Udyam registration number is required.'
+      }
     }
 
     if (shouldRequire('pan_doc') && !hasDocument('PAN', nextFiles)) e.pan_doc = 'PAN Card document is required.'
     if (nextForm.gst_applicable && shouldRequire('gst_doc') && !hasDocument('GST', nextFiles)) e.gst_doc = 'GST Certificate is required.'
-    if (shouldRequire('cheque_doc') && !hasDocument('CHEQUE', nextFiles)) e.cheque_doc = 'Cancelled cheque is required.'
-    if (nextForm.msme_applicable && shouldRequire('msme_doc') && !hasDocument('MSME', nextFiles)) e.msme_doc = 'MSME Certificate is required.'
+    if (!isCustomer) {
+      if (shouldRequire('cheque_doc') && !hasDocument('CHEQUE', nextFiles)) e.cheque_doc = 'Cancelled cheque is required.'
+      if (nextForm.msme_applicable && shouldRequire('msme_doc') && !hasDocument('MSME', nextFiles)) e.msme_doc = 'MSME Certificate is required.'
+    }
 
     return e
   }
@@ -312,15 +318,15 @@ export default function OnboardingFormPage() {
     pan_name: form.pan_name,
     gst_applicable: form.gst_applicable,
     gst_number: form.gst_applicable ? form.gst_number.toUpperCase() : '',
-    account_holder_name: form.account_holder_name,
-    bank_name: form.bank_name,
-    branch_name: form.branch_name,
-    account_number: form.account_number,
-    ifsc_code: form.ifsc_code.toUpperCase(),
-    msme_applicable: form.msme_applicable,
-    msme_status: form.msme_applicable ? normalizeMsmeCode(form.msme_category) : 'MNA',
-    msme_category: form.msme_applicable ? normalizeMsmeCode(form.msme_category) : '',
-    udyam_number: form.msme_applicable ? form.udyam_number : '',
+    account_holder_name: isCustomer ? '' : form.account_holder_name,
+    bank_name: isCustomer ? '' : form.bank_name,
+    branch_name: isCustomer ? '' : form.branch_name,
+    account_number: isCustomer ? '' : form.account_number,
+    ifsc_code: isCustomer ? '' : form.ifsc_code.toUpperCase(),
+    msme_applicable: isCustomer ? false : form.msme_applicable,
+    msme_status: !isCustomer && form.msme_applicable ? normalizeMsmeCode(form.msme_category) : 'MNA',
+    msme_category: !isCustomer && form.msme_applicable ? normalizeMsmeCode(form.msme_category) : '',
+    udyam_number: !isCustomer && form.msme_applicable ? form.udyam_number : '',
   })
 
   // ── Step 1 validation ──
@@ -356,12 +362,24 @@ export default function OnboardingFormPage() {
   }
 
   // ── Upload files ──
-  const uploadFile = async (docType, file) => {
+  const uploadFile = async (docType, file, label) => {
     if (!file) return
     const fd = new FormData()
     fd.append('document_type', docType)
+    if (label) fd.append('label', label)
     fd.append('file', file)
     await publicApi.post(`/documents/upload/${token}/`, fd)
+  }
+
+  // ── Extra documents ──
+  const addExtraDoc = () => {
+    setExtraDocs((prev) => [...prev, { id: `new-${Date.now()}-${Math.random()}`, label: '', file: null }])
+  }
+  const updateExtraDoc = (id, patch) => {
+    setExtraDocs((prev) => prev.map((doc) => (doc.id === id ? { ...doc, ...patch } : doc)))
+  }
+  const removeExtraDoc = (id) => {
+    setExtraDocs((prev) => prev.filter((doc) => doc.id !== id))
   }
 
   // ── Final submit ──
@@ -375,8 +393,9 @@ export default function OnboardingFormPage() {
       await Promise.all([
         uploadFile('PAN', files.PAN),
         form.gst_applicable && uploadFile('GST', files.GST),
-        uploadFile('CHEQUE', files.CHEQUE),
-        form.msme_applicable && uploadFile('MSME', files.MSME),
+        !isCustomer && uploadFile('CHEQUE', files.CHEQUE),
+        !isCustomer && form.msme_applicable && uploadFile('MSME', files.MSME),
+        ...extraDocs.filter((doc) => doc.file).map((doc) => uploadFile('OTHER', doc.file, doc.label)),
       ])
       await publicApi.post(`/onboarding/form/${token}/submit/`, buildPayload())
       setSubmitted(true)
@@ -643,6 +662,7 @@ export default function OnboardingFormPage() {
               )}
             </div>
 
+            {!isCustomer && (
             <div className="card">
               <div className="card-title"><div className="card-title-icon">🏦</div>Bank Account Details</div>
               <div className="grid-2">
@@ -677,6 +697,7 @@ export default function OnboardingFormPage() {
                 </div>
               </div>
             </div>
+            )}
 
             <div className="btn-row">
               <button className="btn btn-secondary" onClick={() => goToStep(1)}>← Back</button>
@@ -688,6 +709,7 @@ export default function OnboardingFormPage() {
         {/* ── STEP 3: MSME & Documents ── */}
         {step === 3 && (
           <>
+            {!isCustomer && (
             <div className="card">
               <div className="card-title"><div className="card-title-icon">🏅</div>MSME Registration Status</div>
               <div className="field" style={{ marginBottom: '1rem' }}>
@@ -732,6 +754,7 @@ export default function OnboardingFormPage() {
                 </div>
               )}
             </div>
+            )}
 
             <div className="card">
               <div className="card-title">
@@ -781,6 +804,7 @@ export default function OnboardingFormPage() {
                   )}
                 </div>
 
+                {!isCustomer && (
                 <div className="doc-card">
                   <div className="doc-card-head">
                     <div className="doc-card-title">🏦 Cancelled Cheque</div>
@@ -795,7 +819,9 @@ export default function OnboardingFormPage() {
                   />
                   {errors.cheque_doc && <span className="field-error">{errors.cheque_doc}</span>}
                 </div>
+                )}
 
+                {!isCustomer && (
                 <div className="doc-card">
                   <div className="doc-card-head">
                     <div className="doc-card-title">🏅 MSME Certificate</div>
@@ -820,7 +846,49 @@ export default function OnboardingFormPage() {
                     </div>
                   )}
                 </div>
+                )}
+
+                {tokenData?.onboarding?.documents?.filter((doc) => doc.document_type === 'OTHER').map((doc) => (
+                  <div className="doc-card" key={doc.id}>
+                    <div className="doc-card-head">
+                      <div className="doc-card-title">📎 {doc.label || 'Additional Document'}</div>
+                    </div>
+                    <div className="file-selected">
+                      <span>📄</span>
+                      <span className="file-name">{doc.original_filename}</span>
+                      {doc.file_url && (
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--brand)', textDecoration: 'underline' }}>View</a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {!isReadOnly && extraDocs.map((doc) => (
+                  <div className="doc-card" key={doc.id}>
+                    <div className="doc-card-head">
+                      <div className="doc-card-title">📎 Additional Document</div>
+                      <button type="button" className="file-remove" onClick={() => removeExtraDoc(doc.id)} title="Remove">✕</button>
+                    </div>
+                    <input
+                      type="text"
+                      value={doc.label}
+                      onChange={(e) => updateExtraDoc(doc.id, { label: e.target.value })}
+                      placeholder="Document name (e.g. Board Resolution)"
+                      style={{ marginBottom: 8 }}
+                    />
+                    <FileUploadField
+                      value={doc.file}
+                      onChange={(f) => updateExtraDoc(doc.id, { file: f })}
+                    />
+                  </div>
+                ))}
               </div>
+
+              {!isReadOnly && (
+                <button type="button" className="btn btn-secondary" style={{ marginTop: 12 }} onClick={addExtraDoc}>
+                  + Add Document
+                </button>
+              )}
             </div>
 
             <div className="btn-row">
@@ -847,28 +915,35 @@ export default function OnboardingFormPage() {
             </div>
 
             <div className="card">
-              <div className="card-title"><div className="card-title-icon">🏛️</div>Review — Tax & Bank</div>
+              <div className="card-title"><div className="card-title-icon">🏛️</div>Review — Tax{!isCustomer ? ' & Bank' : ''}</div>
               <div className="summary-grid">
                 <div className="summary-row"><span className="summary-key">PAN</span><span className="summary-val mono">{form.pan_number}</span></div>
                 <div className="summary-row"><span className="summary-key">PAN Name</span><span className="summary-val">{form.pan_name}</span></div>
                 <div className="summary-row"><span className="summary-key">GST</span><span className="summary-val mono">{form.gst_applicable ? form.gst_number : 'Not Applicable'}</span></div>
-                <div className="summary-row"><span className="summary-key">Account Holder</span><span className="summary-val">{form.account_holder_name}</span></div>
-                <div className="summary-row"><span className="summary-key">Bank</span><span className="summary-val">{form.bank_name}</span></div>
-                <div className="summary-row"><span className="summary-key">Branch</span><span className="summary-val">{form.branch_name}</span></div>
-                <div className="summary-row"><span className="summary-key">Account No.</span><span className="summary-val mono">{form.account_number}</span></div>
-                <div className="summary-row"><span className="summary-key">IFSC</span><span className="summary-val mono">{form.ifsc_code}</span></div>
+                {!isCustomer && (
+                  <>
+                    <div className="summary-row"><span className="summary-key">Account Holder</span><span className="summary-val">{form.account_holder_name}</span></div>
+                    <div className="summary-row"><span className="summary-key">Bank</span><span className="summary-val">{form.bank_name}</span></div>
+                    <div className="summary-row"><span className="summary-key">Branch</span><span className="summary-val">{form.branch_name}</span></div>
+                    <div className="summary-row"><span className="summary-key">Account No.</span><span className="summary-val mono">{form.account_number}</span></div>
+                    <div className="summary-row"><span className="summary-key">IFSC</span><span className="summary-val mono">{form.ifsc_code}</span></div>
+                  </>
+                )}
               </div>
             </div>
 
             <div className="card">
-              <div className="card-title"><div className="card-title-icon">🏅</div>Review — MSME & Documents</div>
-              <div className="summary-grid" style={{ marginBottom: '1rem' }}>
-                <div className="summary-row"><span className="summary-key">MSME Status</span><span className="summary-val">{form.msme_applicable ? formatMsmeOption(form.msme_category) : formatMsmeOption('MNA')}</span></div>
-                {form.msme_applicable && <div className="summary-row"><span className="summary-key">Udyam No.</span><span className="summary-val mono">{form.udyam_number}</span></div>}
-              </div>
+              <div className="card-title"><div className="card-title-icon">📎</div>Review — Documents</div>
+              {!isCustomer && (
+                <div className="summary-grid" style={{ marginBottom: '1rem' }}>
+                  <div className="summary-row"><span className="summary-key">MSME Status</span><span className="summary-val">{form.msme_applicable ? formatMsmeOption(form.msme_category) : formatMsmeOption('MNA')}</span></div>
+                  {form.msme_applicable && <div className="summary-row"><span className="summary-key">Udyam No.</span><span className="summary-val mono">{form.udyam_number}</span></div>}
+                </div>
+              )}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {['PAN', 'GST', 'CHEQUE', 'MSME'].map((t) => {
                   const f = files[t]
+                  if (isCustomer && (t === 'CHEQUE' || t === 'MSME')) return null
                   const required = t === 'PAN' || t === 'CHEQUE' || (t === 'GST' && form.gst_applicable) || (t === 'MSME' && form.msme_applicable)
                   if (!required) return null
                   return (

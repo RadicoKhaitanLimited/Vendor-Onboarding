@@ -9,6 +9,11 @@ import PurchaseOrganizationFields from './PurchaseOrganizationFields'
 import CompanyCodeSelect from './CompanyCodeSelect'
 import TDSCodeSelect from './TDSCodeSelect'
 import SearchTermSelect from './SearchTermSelect'
+import SalesOrganizationSelect from './SalesOrganizationSelect'
+import DistributionChannelSelect from './DistributionChannelSelect'
+import DivisionSelect from './DivisionSelect'
+import TransportationZoneSelect from './TransportationZoneSelect'
+import CustomerCompanyCodeSelect from './CustomerCompanyCodeSelect'
 import { MSME_REGISTERED_OPTIONS, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
@@ -192,6 +197,11 @@ export default function EditOnboardingModal({
     company_code_to_open:     data.company_code_to_open || '',
     payment_terms:            data.payment_terms || '',
     tds_codes:                data.tds_codes || '',
+    sales_organization:       data.sales_organization || '',
+    distribution_channel:     data.distribution_channel || '',
+    division:                 data.division || '',
+    transportation_zone:      data.transportation_zone || '',
+    customer_company_code:    data.customer_company_code || '',
   })
 
   // ── document state ───────────────────────────────────────────────
@@ -269,8 +279,8 @@ export default function EditOnboardingModal({
   const requiredDocTypes = () => [
     'PAN',
     ...(form.gst_applicable ? ['GST'] : []),
-    'CHEQUE',
-    ...(form.msme_applicable ? ['MSME'] : []),
+    ...(isCustomer ? [] : ['CHEQUE']),
+    ...(!isCustomer && form.msme_applicable ? ['MSME'] : []),
   ]
 
   const validateDocuments = () => {
@@ -312,18 +322,20 @@ export default function EditOnboardingModal({
       const stateCodeError = validateGstStateCode(form.state, form.gst_number)
       if (stateCodeError) e.gst_number = stateCodeError
     }
-    if (!form.account_holder_name.trim()) e.account_holder_name = 'Account holder name is required.'
-    if (!form.bank_name) e.bank_name = 'Bank name is required.'
-    if (!form.branch_name.trim()) e.branch_name = 'Branch name is required.'
-    if (!form.account_number.trim()) e.account_number = 'Account number is required.'
-    if (!form.ifsc_code || !IFSC_RE.test(form.ifsc_code.toUpperCase()))
-      e.ifsc_code = 'Invalid IFSC format. Expected: ABCD0123456'
-    if (form.pincode && form.pincode.length !== 6) e.pincode = 'PIN must be 6 digits.'
-    if (form.msme_applicable === null) e.msme_applicable = 'Please select MSME status.'
-    if (form.msme_applicable) {
-      if (!form.msme_category) e.msme_category = 'MSME category is required.'
-      if (!form.udyam_number.trim()) e.udyam_number = 'Udyam registration number is required.'
+    if (!isCustomer) {
+      if (!form.account_holder_name.trim()) e.account_holder_name = 'Account holder name is required.'
+      if (!form.bank_name) e.bank_name = 'Bank name is required.'
+      if (!form.branch_name.trim()) e.branch_name = 'Branch name is required.'
+      if (!form.account_number.trim()) e.account_number = 'Account number is required.'
+      if (!form.ifsc_code || !IFSC_RE.test(form.ifsc_code.toUpperCase()))
+        e.ifsc_code = 'Invalid IFSC format. Expected: ABCD0123456'
+      if (form.msme_applicable === null) e.msme_applicable = 'Please select MSME status.'
+      if (form.msme_applicable) {
+        if (!form.msme_category) e.msme_category = 'MSME category is required.'
+        if (!form.udyam_number.trim()) e.udyam_number = 'Udyam registration number is required.'
+      }
     }
+    if (form.pincode && form.pincode.length !== 6) e.pincode = 'PIN must be 6 digits.'
     Object.assign(e, validateDocuments())
     setErrors(e)
     return Object.keys(e).length === 0
@@ -353,15 +365,15 @@ export default function EditOnboardingModal({
         pan_name:            form.pan_name,
         gst_applicable:      form.gst_applicable ?? false,
         gst_number:          form.gst_applicable ? (form.gst_number ? form.gst_number.toUpperCase() : '') : '',
-        account_holder_name: form.account_holder_name,
-        bank_name:           form.bank_name,
-        branch_name:         form.branch_name,
-        account_number:      form.account_number,
-        ifsc_code:           form.ifsc_code ? form.ifsc_code.toUpperCase() : '',
-        msme_applicable:          form.msme_applicable ?? false,
-        msme_status:              form.msme_applicable ? normalizeMsmeCode(form.msme_category) : 'MNA',
-        msme_category:            form.msme_applicable ? normalizeMsmeCode(form.msme_category) : '',
-        udyam_number:             form.msme_applicable ? form.udyam_number : '',
+        account_holder_name: isCustomer ? '' : form.account_holder_name,
+        bank_name:           isCustomer ? '' : form.bank_name,
+        branch_name:         isCustomer ? '' : form.branch_name,
+        account_number:      isCustomer ? '' : form.account_number,
+        ifsc_code:           isCustomer ? '' : (form.ifsc_code ? form.ifsc_code.toUpperCase() : ''),
+        msme_applicable:          isCustomer ? false : (form.msme_applicable ?? false),
+        msme_status:              !isCustomer && form.msme_applicable ? normalizeMsmeCode(form.msme_category) : 'MNA',
+        msme_category:            !isCustomer && form.msme_applicable ? normalizeMsmeCode(form.msme_category) : '',
+        udyam_number:             !isCustomer && form.msme_applicable ? form.udyam_number : '',
         reference_vendor_code:    form.reference_vendor_code,
         vendor_reference_range:   form.vendor_reference_range,
         reference_name:           form.reference_name,
@@ -373,6 +385,11 @@ export default function EditOnboardingModal({
         company_code_to_open:     form.company_code_to_open,
         payment_terms:            form.payment_terms,
         tds_codes:                form.tds_codes,
+        sales_organization:       isCustomer ? form.sales_organization : '',
+        distribution_channel:     isCustomer ? form.distribution_channel : '',
+        division:                 isCustomer ? form.division : '',
+        transportation_zone:      isCustomer ? form.transportation_zone : '',
+        customer_company_code:    isCustomer ? form.customer_company_code : '',
       })
       toast.success('Saved', 'Details updated successfully.')
       onSaved()
@@ -478,6 +495,16 @@ export default function EditOnboardingModal({
     const verificationMessages = getApprovalValidationMessages(verificationRecord)
     if (verificationMessages.length) {
       toast.error('Cannot send to boss', verificationMessages.join(' '))
+      return
+    }
+
+    const documentTypes = new Set(docDocs.map((document) => document.document_type))
+    const hasRequiredDocuments = documentTypes.has('PAN')
+      && (isCustomer || documentTypes.has('CHEQUE'))
+      && (!form.gst_applicable || documentTypes.has('GST'))
+      && (isCustomer || !form.msme_applicable || documentTypes.has('MSME'))
+    if (!hasRequiredDocuments) {
+      toast.error('Cannot send to boss', 'Upload the required documents before approval.')
       return
     }
 
@@ -653,7 +680,55 @@ export default function EditOnboardingModal({
     }
   }
 
+  // ── extra (additional) documents ─────────────────────────────────
+  const [newExtraDocs, setNewExtraDocs] = useState([])
+  const [extraDocUploading, setExtraDocUploading] = useState(false)
+
+  const addExtraDocSlot = () => {
+    setNewExtraDocs((prev) => [...prev, { id: `new-${Date.now()}-${Math.random()}`, label: '', file: null }])
+  }
+  const updateExtraDocSlot = (id, patch) => {
+    setNewExtraDocs((prev) => prev.map((doc) => (doc.id === id ? { ...doc, ...patch } : doc)))
+  }
+  const removeExtraDocSlot = (id) => {
+    setNewExtraDocs((prev) => prev.filter((doc) => doc.id !== id))
+  }
+
+  const handleExtraDocFileChange = async (id, file) => {
+    if (!file || !validateDocFile(file)) return
+    updateExtraDocSlot(id, { file })
+    setExtraDocUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('document_type', 'OTHER')
+      const slot = newExtraDocs.find((doc) => doc.id === id)
+      if (slot?.label) fd.append('label', slot.label)
+      fd.append('file', file)
+      const { data: newDoc } = await api.post(`/documents/admin/${data.id}/`, fd, {
+        headers: { 'Content-Type': undefined },
+      })
+      setDocDocs((prev) => [...prev, newDoc])
+      setNewExtraDocs((prev) => prev.filter((doc) => doc.id !== id))
+      toast.success('Uploaded', 'Additional document uploaded.')
+    } catch (err) {
+      toast.error('Upload failed', err.response?.data?.detail || 'Could not upload file.')
+    } finally {
+      setExtraDocUploading(false)
+    }
+  }
+
+  const handleExtraDocDelete = async (docId) => {
+    try {
+      await api.delete(`/documents/admin/${data.id}/?id=${docId}`)
+      setDocDocs((prev) => prev.filter((d) => d.id !== docId))
+      toast.success('Removed', 'Additional document removed.')
+    } catch {
+      toast.error('Failed', 'Could not remove document.')
+    }
+  }
+
   const entityType = data.onboarding_type === 'VENDOR' ? 'Vendor' : 'Customer'
+  const isCustomer = data.onboarding_type !== 'VENDOR'
   const canApprove = ['ADMIN', 'BOSS'].includes(user?.role)
   const canSave = user?.role === 'ADMIN'
     || (['EMPLOYEE', 'BOSS'].includes(user?.role) && data.status !== 'APPROVED')
@@ -790,10 +865,11 @@ export default function EditOnboardingModal({
 
   <button
     type="button"
-    className="btn btn-verify"
+    className={`btn btn-verify verification-button ${panLoading ? 'is-verifying' : ''} ${panVerification?.verified ? 'is-verified' : ''}`}
     onClick={handleVerifyPan}
+    disabled={panLoading}
   >
-    ✓ Verify PAN
+    {panLoading ? <><span className="verify-spinner" /> Verifying PAN…</> : panVerification?.verified ? '✓ PAN Verified' : '✓ Verify PAN'}
   </button>
   </div>
 
@@ -959,11 +1035,11 @@ export default function EditOnboardingModal({
       />
       <button
         type="button"
-        className="btn btn-verify"
+        className={`btn btn-verify verification-button ${gstLoading ? 'is-verifying' : ''} ${gstVerification?.verified ? 'is-verified' : ''}`}
         onClick={handleVerifyGst}
         disabled={gstLoading}
       >
-        {gstLoading ? 'Verifying…' : '✓ Verify GST'}
+        {gstLoading ? <><span className="verify-spinner" /> Verifying GST…</> : gstVerification?.verified ? '✓ GST Verified' : '✓ Verify GST'}
       </button>
     </div>
 
@@ -1024,6 +1100,7 @@ export default function EditOnboardingModal({
         </div>
 
         {/* ── Bank Account ── */}
+        {!isCustomer && (
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏦</div>Bank Account Details</div>
           <div className="grid-2">
@@ -1064,8 +1141,10 @@ export default function EditOnboardingModal({
             </div>
           </div>
         </div>
+        )}
 
         {/* ── MSME ── */}
+        {!isCustomer && (
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏅</div>MSME Status</div>
           <div className="field" style={{ marginBottom: '1rem' }}>
@@ -1102,6 +1181,7 @@ export default function EditOnboardingModal({
             </div>
           )}
         </div>
+        )}
 
         {/* ── SAP / ERP Reference Details ── */}
         <div className="card" style={{ marginBottom: '1rem' }}>
@@ -1112,29 +1192,65 @@ export default function EditOnboardingModal({
               onCodeChange={(value) => set('reference_vendor_code', value)}
               onRangeChange={(value) => set('vendor_reference_range', value)}
               onMappingChange={applyVendorReferenceMapping}
+              isCustomer={isCustomer}
             />
-            <PurchaseOrganizationFields
-              referenceValue={form.reference_purchase_orgs}
-              onReferenceChange={(value) => set('reference_purchase_orgs', value)}
-              openValue={form.purchase_orgs_to_open}
-              onOpenChange={setCreatedPurchaseOrgs}
-              searchTermField={
-                <div className="field">
-                  <label>Search Term</label>
-                  <SearchTermSelect value={form.search_term} onChange={(value) => set('search_term', value)} />
+            {isCustomer && (
+              <div className="field span-2">
+                <div className="sales-area-card">
+                  <div className="card-title">Sales Area</div>
+                  <div className="grid-2">
+                    <div className="field">
+                      <label>Sales Organization</label>
+                      <SalesOrganizationSelect value={form.sales_organization} onChange={(value) => set('sales_organization', value)} />
+                    </div>
+                    <div className="field">
+                      <label>Distribution Channel</label>
+                      <DistributionChannelSelect value={form.distribution_channel} onChange={(value) => set('distribution_channel', value)} />
+                    </div>
+                    <div className="field">
+                      <label>Division</label>
+                      <DivisionSelect value={form.division} onChange={(value) => set('division', value)} />
+                    </div>
+                  </div>
                 </div>
-              }
-              companyCodeField={
-                <div className="field">
-                  <label>Company Code (In which to be opened)</label>
-                  <CompanyCodeSelect
-                    value={form.company_code_to_open}
-                    onChange={(value) => set('company_code_to_open', value)}
-                    disabled={!!form.reference_purchase_orgs.length}
-                  />
-                </div>
-              }
-            />
+              </div>
+            )}
+            {isCustomer && (
+              <div className="field">
+                <label>Transportation Zone</label>
+                <TransportationZoneSelect value={form.transportation_zone} onChange={(value) => set('transportation_zone', value)} />
+              </div>
+            )}
+            {isCustomer && (
+              <div className="field">
+                <label>Company Code</label>
+                <CustomerCompanyCodeSelect value={form.customer_company_code} onChange={(value) => set('customer_company_code', value)} />
+              </div>
+            )}
+            {!isCustomer && (
+              <PurchaseOrganizationFields
+                referenceValue={form.reference_purchase_orgs}
+                onReferenceChange={(value) => set('reference_purchase_orgs', value)}
+                openValue={form.purchase_orgs_to_open}
+                onOpenChange={setCreatedPurchaseOrgs}
+                searchTermField={
+                  <div className="field">
+                    <label>Search Term</label>
+                    <SearchTermSelect value={form.search_term} onChange={(value) => set('search_term', value)} />
+                  </div>
+                }
+                companyCodeField={
+                  <div className="field">
+                    <label>Company Code (In which to be opened)</label>
+                    <CompanyCodeSelect
+                      value={form.company_code_to_open}
+                      onChange={(value) => set('company_code_to_open', value)}
+                      disabled={!!form.reference_purchase_orgs.length}
+                    />
+                  </div>
+                }
+              />
+            )}
             <div className="field">
               <label>Payment Terms</label>
               <select value={form.payment_terms} onChange={(e) => set('payment_terms', e.target.value)}>
@@ -1142,10 +1258,12 @@ export default function EditOnboardingModal({
                 <PaymentTermsSelect />
               </select>
             </div>
-            <div className="field">
-              <label>TDS Codes</label>
-              <TDSCodeSelect value={form.tds_codes} onChange={(value) => set('tds_codes', value)} />
-            </div>
+            {!isCustomer && (
+              <div className="field">
+                <label>TDS Codes</label>
+                <TDSCodeSelect value={form.tds_codes} onChange={(value) => set('tds_codes', value)} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -1158,7 +1276,7 @@ export default function EditOnboardingModal({
             </span>
           </div>
           <div className="doc-section">
-            {DOC_TYPES.map(({ type, label, icon }) => {
+            {DOC_TYPES.filter(({ type }) => !isCustomer || (type !== 'CHEQUE' && type !== 'MSME')).map(({ type, label, icon }) => {
               const existing = docDocs.find((d) => d.document_type === type)
               const uploading = docUploading[type]
               const isRequired = requiredDocTypes().includes(type)
@@ -1265,7 +1383,71 @@ export default function EditOnboardingModal({
                 </div>
               )
             })}
+
+            {docDocs.filter((d) => d.document_type === 'OTHER').map((doc) => (
+              <div key={doc.id} className="doc-card">
+                <div className="doc-card-head">
+                  <div className="doc-card-title">📎 {doc.label || 'Additional Document'}</div>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#DCFCE7', color: '#166534', textTransform: 'uppercase', letterSpacing: '.3px' }}>
+                    Uploaded
+                  </span>
+                </div>
+                <div className="file-selected" style={{ marginBottom: 8 }}>
+                  <span>📄</span>
+                  <span className="file-name">{doc.original_filename}</span>
+                  {doc.file_url && (
+                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: 12, color: 'var(--brand)', textDecoration: 'underline' }}>
+                      View
+                    </a>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleExtraDocDelete(doc.id)}
+                  style={{
+                    fontSize: 11, color: 'var(--danger)', fontWeight: 600, cursor: 'pointer',
+                    padding: '3px 10px', background: 'var(--danger-bg)',
+                    border: '1px solid rgba(185,28,28,.15)', borderRadius: 6,
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+
+            {newExtraDocs.map((doc) => (
+              <div key={doc.id} className="doc-card">
+                <div className="doc-card-head">
+                  <div className="doc-card-title">📎 Additional Document</div>
+                  <button className="file-remove" onClick={() => removeExtraDocSlot(doc.id)}>✕</button>
+                </div>
+                <input
+                  type="text"
+                  value={doc.label}
+                  onChange={(e) => updateExtraDocSlot(doc.id, { label: e.target.value })}
+                  placeholder="Document name (e.g. Board Resolution)"
+                  style={{ marginBottom: 8 }}
+                />
+                {extraDocUploading && doc.file ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', fontSize: 13, color: 'var(--muted)' }}>
+                    <div className="spinner" style={{ width: 16, height: 16, borderColor: 'var(--border-2)', borderTopColor: 'var(--brand)' }} />
+                    Uploading…
+                  </div>
+                ) : (
+                  <div className="file-upload-zone" style={{ padding: 14 }}>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleExtraDocFileChange(doc.id, f); e.target.value = '' }} />
+                    <div className="file-icon" style={{ fontSize: 20, marginBottom: 4 }}>📄</div>
+                    <div className="file-label"><span>Click to upload</span> or drag & drop</div>
+                    <div className="file-sub">PDF, JPG, PNG · Max 10 MB</div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
+          <button type="button" className="btn btn-secondary" style={{ marginTop: 12 }} onClick={addExtraDocSlot}>
+            + Add Document
+          </button>
         </div>
 
         {/* ── Send to boss ── */}
