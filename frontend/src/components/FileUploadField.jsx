@@ -53,6 +53,7 @@ export default function FileUploadField({ value, onChange, disabled, existingDoc
             className="file-remove"
             onClick={() => onChange(null)}
             title="Remove"
+            aria-label="Remove uploaded file"
           >✕</button>
         </div>
       )}

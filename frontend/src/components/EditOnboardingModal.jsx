@@ -824,12 +824,13 @@ export default function EditOnboardingModal({
 
         {/* ── Header ── */}
         <div className="modal-header">
-          <div>
-            <div style={{ fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 16, color: 'var(--brand)' }}>
-              Edit — {data.onboarding_code}
+          <div className="detail-header-info">
+            <div className="detail-header-top">
+              <span className="code-chip">{data.onboarding_code}</span>
+              <h2 className="detail-header-name">Edit Registration</h2>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-              {entityType} Registration Details
+            <div className="detail-header-badges">
+              <span className="detail-header-sub">{entityType} Registration Details</span>
             </div>
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
@@ -1632,12 +1633,7 @@ export default function EditOnboardingModal({
           </div>
         )}
 
-        <div style={{
-          display: 'flex', gap: 8, justifyContent: 'flex-end',
-          paddingTop: '1rem', paddingBottom: '0.5rem',
-          borderTop: '1px solid var(--border)',
-          position: 'sticky', bottom: 0, background: 'var(--surface)',
-        }}>
+        <div className="manual-modal-footer">
           <button className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
           {canSave && (
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>

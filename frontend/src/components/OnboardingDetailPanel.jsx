@@ -63,18 +63,14 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
   return (
     <>
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal-panel">
+      <div className="modal-panel detail-panel">
         <div className="modal-header">
-          <div>
-            <div style={{ fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 16, color: 'var(--brand)' }}>
-              {data?.onboarding_code || '…'}
+          <div className="detail-header-info">
+            <div className="detail-header-top">
+              <span className="code-chip">{data?.onboarding_code || '…'}</span>
+              {data?.company_name && <h2 className="detail-header-name">{data.company_name}</h2>}
             </div>
-            {data?.company_name && (
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginTop: 1 }}>
-                {data.company_name}
-              </div>
-            )}
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div className="detail-header-badges">
               <span className={`type-badge ${data?.onboarding_type === 'VENDOR' ? 'type-vendor' : 'type-customer'}`}>
                 {data?.onboarding_type === 'VENDOR' ? 'Vendor' : 'Customer'}
               </span>

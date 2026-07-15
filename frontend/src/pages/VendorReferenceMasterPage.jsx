@@ -282,9 +282,10 @@ export default function VendorReferenceMasterPage() {
           <div className="table-header">
             <div className="table-title">Mappings</div>
             <div className="search-box">
-              <span>Search</span>
+              <span className="search-icon" aria-hidden="true"></span>
               <input
                 type="text"
+                aria-label="Search mappings"
                 placeholder="Range, grouping, name, GL..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -293,11 +294,12 @@ export default function VendorReferenceMasterPage() {
           </div>
 
           {loading ? (
-            <div className="empty-state"><div className="empty-icon">...</div>Loading...</div>
+            <div className="empty-state"><div className="empty-icon">⏳</div>Loading…</div>
           ) : records.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">#</div>
               <p>No vendor reference mappings found.</p>
+              <p className="empty-state-sub">Create a mapping using the form above to get started.</p>
             </div>
           ) : (
             <table>

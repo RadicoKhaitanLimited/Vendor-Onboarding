@@ -482,34 +482,37 @@ export default function OnboardingFormPage() {
 
   // ── Loading / Error states ──
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 16, background: 'linear-gradient(160deg, #0f0c08 0%, #1c1208 55%, #111827 100%)' }}>
-      <img src="/radico-logo.png" alt="Radico Khaitan" style={{ height: 60, marginBottom: 8 }} />
-      <div className="spinner" style={{ width: 24, height: 24, borderColor: 'rgba(255,255,255,0.15)', borderTopColor: '#C9A84C' }} />
-      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading your onboarding form…</div>
+    <div className="onboarding-fullscreen" role="status" aria-live="polite">
+      <img src="/radico-logo.png" alt="Radico Khaitan" className="onboarding-fullscreen-logo" />
+      <div className="spinner" style={{ width: 26, height: 26, borderColor: 'rgba(255,255,255,0.15)', borderTopColor: '#C9A84C' }} aria-hidden="true" />
+      <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13.5 }}>Loading your onboarding form…</div>
+      <div className="onboarding-loading-track" aria-hidden="true" />
     </div>
   )
 
   if (tokenError) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 14, background: 'linear-gradient(160deg, #0f0c08 0%, #1c1208 55%, #111827 100%)', padding: '2rem', textAlign: 'center' }}>
-      <img src="/radico-logo.png" alt="Radico Khaitan" style={{ height: 56, marginBottom: 16 }} />
-      <div style={{ fontSize: 36 }}>🔒</div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: '#fff' }}>Link Invalid or Expired</h2>
-      <p style={{ color: 'rgba(255,255,255,0.45)', maxWidth: 380 }}>{tokenError}</p>
-      <p style={{ color: 'rgba(255,255,255,0.28)', fontSize: 13 }}>Please contact Radico Khaitan to request a new link.</p>
+    <div className="onboarding-fullscreen" role="alert">
+      <img src="/radico-logo.png" alt="Radico Khaitan" className="onboarding-fullscreen-logo" />
+      <div className="onboarding-fullscreen-card">
+        <div className="onboarding-status-icon is-error" aria-hidden="true">🔒</div>
+        <h2>Link Invalid or Expired</h2>
+        <p className="onboarding-lede">{tokenError}</p>
+        <p className="onboarding-footnote">Please contact Radico Khaitan to request a new link.</p>
+      </div>
     </div>
   )
 
   if (submitted) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(160deg, #0f0c08 0%, #1c1208 55%, #111827 100%)' }}>
-      <div style={{ textAlign: 'center', padding: '3rem 2rem', maxWidth: 520 }}>
-        <img src="/radico-logo.png" alt="Radico Khaitan" style={{ height: 56, marginBottom: '2rem' }} />
-        <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(14,122,58,0.15)', border: '2px solid rgba(110,231,160,0.3)', margin: '0 auto 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>✅</div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: '#fff', marginBottom: '.5rem' }}>Registration Submitted!</h2>
-        <p style={{ color: 'rgba(255,255,255,0.45)', marginBottom: '1.75rem', lineHeight: 1.7 }}>
+    <div className="onboarding-fullscreen" role="status">
+      <img src="/radico-logo.png" alt="Radico Khaitan" className="onboarding-fullscreen-logo" />
+      <div className="onboarding-fullscreen-card">
+        <div className="onboarding-status-icon is-success" aria-hidden="true">✅</div>
+        <h2>Registration Submitted!</h2>
+        <p className="onboarding-lede">
           Your {entityType} onboarding application has been submitted successfully and is now under review.
         </p>
         <div className="code-display">{tokenData?.onboarding?.onboarding_code}</div>
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.28)', marginTop: '.75rem' }}>
+        <p className="onboarding-footnote">
           Use this code to follow up with the Radico Khaitan team.
         </p>
       </div>
@@ -522,32 +525,36 @@ export default function OnboardingFormPage() {
         <div className="logo">
           <img src="/radico-logo.png" alt="Radico Khaitan" className="logo-img" />
         </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-          {entityType} Onboarding · <span style={{ fontFamily: 'var(--mono)', color: '#C9A84C', fontWeight: 600 }}>{tokenData?.onboarding?.onboarding_code}</span>
+        <div className="onboarding-header-meta">
+          {entityType} Onboarding · <span className="onboarding-header-code">{tokenData?.onboarding?.onboarding_code}</span>
         </div>
       </header>
 
-      <div className="page">
+      <div className="page onboarding-page">
         <div className="page-header">
           <h1>{registrationTitle}</h1>
           <p>Complete all sections to register as a {entityType.toLowerCase()}. Starred fields are mandatory.</p>
         </div>
 
         {isReadOnly && (
-          <div style={{ background: 'var(--success-bg)', border: '1px solid #A7F3C5', borderRadius: 'var(--radius)', padding: '12px 16px', marginBottom: '1.5rem', fontSize: 13, color: 'var(--success)', fontWeight: 500 }}>
-            ✅ Your registration has been <strong>Approved</strong>. The form is now read-only.
+          <div className="onboarding-approved-banner">
+            <span className="onboarding-approved-banner-icon" aria-hidden="true">✅</span>
+            <span>Your registration has been <strong>Approved</strong>. The form is now read-only.</span>
           </div>
         )}
 
         {/* Step Indicator */}
-        <div className="steps">
+        <nav className="onb-steps" aria-label="Registration steps">
           {STEPS.map((s) => (
-            <div key={s.id} className={`step ${step === s.id ? 'active' : step > s.id ? 'done' : ''}`}>
-              <div className="step-num">{step > s.id ? '✓' : s.id}</div>
-              <div className="step-label">{s.label}</div>
+            <div key={s.id} className={`onb-step ${step === s.id ? 'active' : step > s.id ? 'done' : ''}`} aria-current={step === s.id ? 'step' : undefined}>
+              <div className="onb-step-num" aria-hidden="true">{step > s.id ? '✓' : s.id}</div>
+              <div className="onb-step-text">
+                <span className="onb-step-sub">Step {s.id}</span>
+                <span className="onb-step-label">{s.label}</span>
+              </div>
             </div>
           ))}
-        </div>
+        </nav>
 
         {/* ── STEP 1: Basic Info ── */}
         {step === 1 && (
@@ -556,13 +563,13 @@ export default function OnboardingFormPage() {
               <div className="card-title"><div className="card-title-icon">🏢</div>Company Information</div>
               <div className="grid-2">
                 <div className="field span-2">
-                  <label>{entityType} / Company Name <span className="req">*</span></label>
-                  <input type="text" value={form.company_name} onChange={(e) => set('company_name', e.target.value)} placeholder="e.g. Acme Technologies Pvt. Ltd." disabled={isReadOnly} className={errors.company_name ? 'error' : ''} />
+                  <label htmlFor="f-company-name">{entityType} / Company Name <span className="req">*</span></label>
+                  <input id="f-company-name" type="text" value={form.company_name} onChange={(e) => set('company_name', e.target.value)} placeholder="e.g. Acme Technologies Pvt. Ltd." disabled={isReadOnly} className={errors.company_name ? 'error' : ''} />
                   {errors.company_name && <span className="field-error">{errors.company_name}</span>}
                 </div>
                 <div className="field span-2">
-                  <label>Contact Person</label>
-                  <input type="text" value={form.contact_person} onChange={(e) => set('contact_person', e.target.value)} placeholder="Full name (optional)" disabled={isReadOnly} />
+                  <label htmlFor="f-contact-person">Contact Person</label>
+                  <input id="f-contact-person" type="text" value={form.contact_person} onChange={(e) => set('contact_person', e.target.value)} placeholder="Full name (optional)" disabled={isReadOnly} />
                 </div>
                 <div className="field span-2">
                   <label>Email Address(es) <span className="req">*</span></label>
@@ -582,38 +589,42 @@ export default function OnboardingFormPage() {
               <div className="card-title"><div className="card-title-icon">📍</div>Registered Address</div>
               <div className="grid-2">
                 <div className="field">
-                  <label>District</label>
-                  <input type="text" value={form.district} onChange={(e) => set('district', e.target.value)} placeholder="District" disabled={isReadOnly} className={errors.district ? 'error' : ''} />
+                  <label htmlFor="f-district">District</label>
+                  <input id="f-district" type="text" value={form.district} onChange={(e) => set('district', e.target.value)} placeholder="District" disabled={isReadOnly} className={errors.district ? 'error' : ''} />
                   {errors.district && <span className="field-error">{errors.district}</span>}
                 </div>
                 <div className="field">
-                  <label>City <span className="req">*</span></label>
-                  <input type="text" value={form.city} onChange={(e) => set('city', e.target.value.replace(/[^a-zA-Z\s]/g, ''))} placeholder="City" disabled={isReadOnly} className={errors.city ? 'error' : ''} />
+                  <label htmlFor="f-city">City <span className="req">*</span></label>
+                  <input id="f-city" type="text" value={form.city} onChange={(e) => set('city', e.target.value.replace(/[^a-zA-Z\s]/g, ''))} placeholder="City" disabled={isReadOnly} className={errors.city ? 'error' : ''} />
                   {errors.city && <span className="field-error">{errors.city}</span>}
-                  {pincodeLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up PIN code…</span>}
+                  {pincodeLookupLoading && (
+                    <span className="field-hint-row"><span className="spinner-mini" aria-hidden="true" />Looking up PIN code…</span>
+                  )}
                 </div>
                 <div className="field">
-                  <label>State <span className="req">*</span></label>
-                  <select value={form.state} onChange={(e) => set('state', e.target.value)} disabled={isReadOnly} className={errors.state ? 'error' : ''}>
+                  <label htmlFor="f-state">State <span className="req">*</span></label>
+                  <select id="f-state" value={form.state} onChange={(e) => set('state', e.target.value)} disabled={isReadOnly} className={errors.state ? 'error' : ''}>
                     <option value="">— Select state —</option>
                     {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
                   </select>
                   {errors.state && <span className="field-error">{errors.state}</span>}
                 </div>
                 <div className="field">
-                  <label>PIN Code <span className="req">*</span></label>
-                  <input type="text" value={form.pincode} onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit PIN" disabled={isReadOnly} className={errors.pincode ? 'error' : ''} />
+                  <label htmlFor="f-pincode">PIN Code <span className="req">*</span></label>
+                  <input id="f-pincode" type="text" value={form.pincode} onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit PIN" disabled={isReadOnly} className={errors.pincode ? 'error' : ''} />
                   {errors.pincode && <span className="field-error">{errors.pincode}</span>}
-                  {cityLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up city…</span>}
+                  {cityLookupLoading && (
+                    <span className="field-hint-row"><span className="spinner-mini" aria-hidden="true" />Looking up city…</span>
+                  )}
                   {pincodeSuggestions.length > 0 && (
-                    <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', padding: '6px 10px' }}>Multiple PIN codes found for this city — pick one:</div>
+                    <div className="pincode-suggestions">
+                      <div className="pincode-suggestions-head">Multiple PIN codes found for this city — pick one:</div>
                       {pincodeSuggestions.map((match) => (
                         <button
                           type="button"
                           key={`${match.pincode}-${match.city}`}
                           onClick={() => applyPincodeSuggestion(match)}
-                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13 }}
+                          className="pincode-suggestion-btn"
                         >
                           {match.pincode} — {match.city}, {match.district}, {match.state}
                         </button>
@@ -622,25 +633,25 @@ export default function OnboardingFormPage() {
                   )}
                 </div>
                 <div className="field">
-                  <label>Country</label>
-                  <input type="text" value={form.country} onChange={(e) => set('country', e.target.value)} disabled={isReadOnly} />
+                  <label htmlFor="f-country">Country</label>
+                  <input id="f-country" type="text" value={form.country} onChange={(e) => set('country', e.target.value)} disabled={isReadOnly} />
                 </div>
                 <div className="field span-2">
-                  <label>Street / House Number <span className="req">*</span></label>
-                  <input type="text" value={form.street1} onChange={(e) => set('street1', e.target.value)} placeholder="Building / Plot No., Street Name" maxLength={35} disabled={isReadOnly} className={errors.street1 ? 'error' : ''} />
+                  <label htmlFor="f-street1">Street / House Number <span className="req">*</span></label>
+                  <input id="f-street1" type="text" value={form.street1} onChange={(e) => set('street1', e.target.value)} placeholder="Building / Plot No., Street Name" maxLength={35} disabled={isReadOnly} className={errors.street1 ? 'error' : ''} />
                   {errors.street1 && <span className="field-error">{errors.street1}</span>}
                 </div>
                 <div className="field span-2">
-                  <label>Street 2</label>
-                  <input type="text" value={form.street2} onChange={(e) => set('street2', e.target.value)} placeholder="Area or Locality" maxLength={40} disabled={isReadOnly} />
+                  <label htmlFor="f-street2">Street 2</label>
+                  <input id="f-street2" type="text" value={form.street2} onChange={(e) => set('street2', e.target.value)} placeholder="Area or Locality" maxLength={40} disabled={isReadOnly} />
                 </div>
                 <div className="field span-2">
-                  <label>Street 3</label>
-                  <input type="text" value={form.street3} onChange={(e) => set('street3', e.target.value)} placeholder="Landmark or Nearby Area (optional)" maxLength={40} disabled={isReadOnly} />
+                  <label htmlFor="f-street3">Street 3</label>
+                  <input id="f-street3" type="text" value={form.street3} onChange={(e) => set('street3', e.target.value)} placeholder="Landmark or Nearby Area (optional)" maxLength={40} disabled={isReadOnly} />
                 </div>
                 <div className="field span-2">
-                  <label>Street 4</label>
-                  <input type="text" value={form.street4} onChange={(e) => set('street4', e.target.value)} placeholder="Additional address detail (optional)" maxLength={40} disabled={isReadOnly} />
+                  <label htmlFor="f-street4">Street 4</label>
+                  <input id="f-street4" type="text" value={form.street4} onChange={(e) => set('street4', e.target.value)} placeholder="Additional address detail (optional)" maxLength={40} disabled={isReadOnly} />
                 </div>
               </div>
             </div>
@@ -659,8 +670,9 @@ export default function OnboardingFormPage() {
               <div className="card-title"><div className="card-title-icon">🏛️</div>Tax & Compliance</div>
               <div className="grid-2">
                 <div className="field span-2">
-                  <label>Date of Birth/Commencement</label>
+                  <label htmlFor="f-dob">Date of Birth/Commencement</label>
                   <input
+                    id="f-dob"
                     type="date"
                     value={form.date_of_birth}
                     onChange={(e) => set('date_of_birth', e.target.value)}
@@ -668,8 +680,9 @@ export default function OnboardingFormPage() {
                   />
                 </div>
                 <div className="field span-2">
-                  <label>PAN Number <span className="req">*</span></label>
+                  <label htmlFor="f-pan-number">PAN Number <span className="req">*</span></label>
                   <input
+                    id="f-pan-number"
                     type="text"
                     value={form.pan_number}
                     onChange={(e) => set('pan_number', e.target.value.toUpperCase().slice(0, 10))}
@@ -684,8 +697,9 @@ export default function OnboardingFormPage() {
                 </div>
 
                 <div className="field span-2">
-                  <label>PAN Name {isPanNameEditable(form.pan_number) && <span className="req">*</span>}</label>
+                  <label htmlFor="f-pan-name">PAN Name {isPanNameEditable(form.pan_number) && <span className="req">*</span>}</label>
                   <input
+                    id="f-pan-name"
                     type="text"
                     value={form.pan_name}
                     onChange={(e) => set('pan_name', e.target.value)}
@@ -718,8 +732,9 @@ export default function OnboardingFormPage() {
 
                 {form.gst_applicable && (
                   <div className="field span-2">
-                    <label>GST Number <span className="req">*</span></label>
+                    <label htmlFor="f-gst-number">GST Number <span className="req">*</span></label>
                     <input
+                      id="f-gst-number"
                       type="text"
                       value={form.gst_number}
                       onChange={(e) => set('gst_number', e.target.value.toUpperCase().slice(0, 15))}
@@ -752,34 +767,36 @@ export default function OnboardingFormPage() {
               <div className="card-title"><div className="card-title-icon">🏦</div>Bank Account Details</div>
               <div className="grid-2">
                 <div className="field span-2">
-                  <label>Account Holder Name <span className="req">*</span></label>
-                  <input type="text" value={form.account_holder_name} onChange={(e) => set('account_holder_name', e.target.value)} placeholder="As per bank records" disabled={isReadOnly} className={errors.account_holder_name ? 'error' : ''} />
+                  <label htmlFor="f-account-holder">Account Holder Name <span className="req">*</span></label>
+                  <input id="f-account-holder" type="text" value={form.account_holder_name} onChange={(e) => set('account_holder_name', e.target.value)} placeholder="As per bank records" disabled={isReadOnly} className={errors.account_holder_name ? 'error' : ''} />
                   {errors.account_holder_name && <span className="field-error">{errors.account_holder_name}</span>}
                 </div>
                 <div className="field">
-                  <label>Bank Name <span className="req">*</span></label>
-                  <select value={form.bank_name} onChange={(e) => set('bank_name', e.target.value)} disabled={isReadOnly} className={errors.bank_name ? 'error' : ''}>
+                  <label htmlFor="f-bank-name">Bank Name <span className="req">*</span></label>
+                  <select id="f-bank-name" value={form.bank_name} onChange={(e) => set('bank_name', e.target.value)} disabled={isReadOnly} className={errors.bank_name ? 'error' : ''}>
                     <option value="">— Select bank —</option>
                     {BANKS.map((b) => <option key={b}>{b}</option>)}
                   </select>
                   {errors.bank_name && <span className="field-error">{errors.bank_name}</span>}
                 </div>
                 <div className="field">
-                  <label>Branch Name <span className="req">*</span></label>
-                  <input type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" disabled={isReadOnly} className={errors.branch_name ? 'error' : ''} />
+                  <label htmlFor="f-branch-name">Branch Name <span className="req">*</span></label>
+                  <input id="f-branch-name" type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" disabled={isReadOnly} className={errors.branch_name ? 'error' : ''} />
                   {errors.branch_name && <span className="field-error">{errors.branch_name}</span>}
                 </div>
                 <div className="field">
-                  <label>Account Number <span className="req">*</span></label>
-                  <input type="text" value={form.account_number} onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))} placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.account_number ? 'error' : ''} />
+                  <label htmlFor="f-account-number">Account Number <span className="req">*</span></label>
+                  <input id="f-account-number" type="text" value={form.account_number} onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))} placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.account_number ? 'error' : ''} />
                   {errors.account_number && <span className="field-error">{errors.account_number}</span>}
                 </div>
                 <div className="field">
-                  <label>IFSC Code <span className="req">*</span></label>
-                  <input type="text" value={form.ifsc_code} onChange={(e) => set('ifsc_code', e.target.value.toUpperCase().slice(0, 11))} placeholder="SBIN0001234" maxLength={11} style={{ textTransform: 'uppercase', fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.ifsc_code ? 'error' : ''} />
+                  <label htmlFor="f-ifsc">IFSC Code <span className="req">*</span></label>
+                  <input id="f-ifsc" type="text" value={form.ifsc_code} onChange={(e) => set('ifsc_code', e.target.value.toUpperCase().slice(0, 11))} placeholder="SBIN0001234" maxLength={11} style={{ textTransform: 'uppercase', fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.ifsc_code ? 'error' : ''} />
                   <span className="hint">Format: 4 letters + 0 + 6 alphanumeric</span>
                   {errors.ifsc_code && <span className="field-error">{errors.ifsc_code}</span>}
-                  {ifscLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Verifying IFSC…</span>}
+                  {ifscLookupLoading && (
+                    <span className="field-hint-row"><span className="spinner-mini" aria-hidden="true" />Verifying IFSC…</span>
+                  )}
                   {ifscNotFound && <span className="field-error">IFSC code not found in bank registry.</span>}
                   {ifscBankMismatch && (
                     <span className="field-error">Selected bank doesn't match this IFSC's bank ({ifscBankMismatch}).</span>
@@ -820,8 +837,8 @@ export default function OnboardingFormPage() {
               {form.msme_applicable === true && (
                 <div className="grid-2">
                   <div className="field">
-                    <label>MSME Category <span className="req">*</span></label>
-                    <select value={form.msme_category} onChange={(e) => set('msme_category', e.target.value)} disabled={isReadOnly} className={errors.msme_category ? 'error' : ''}>
+                    <label htmlFor="f-msme-category">MSME Category <span className="req">*</span></label>
+                    <select id="f-msme-category" value={form.msme_category} onChange={(e) => set('msme_category', e.target.value)} disabled={isReadOnly} className={errors.msme_category ? 'error' : ''}>
                       <option value="">— Select —</option>
                       {MSME_REGISTERED_OPTIONS.map(({ code, description }) => (
                         <option key={code} value={code}>{code} - {description}</option>
@@ -830,8 +847,8 @@ export default function OnboardingFormPage() {
                     {errors.msme_category && <span className="field-error">{errors.msme_category}</span>}
                   </div>
                   <div className="field">
-                    <label>Udyam Registration Number <span className="req">*</span></label>
-                    <input type="text" value={form.udyam_number} onChange={(e) => set('udyam_number', e.target.value.toUpperCase())} placeholder="UDYAM-XX-00-0000000" style={{ fontFamily: 'var(--mono)', textTransform: 'uppercase' }} disabled={isReadOnly} className={errors.udyam_number ? 'error' : ''} />
+                    <label htmlFor="f-udyam-number">Udyam Registration Number <span className="req">*</span></label>
+                    <input id="f-udyam-number" type="text" value={form.udyam_number} onChange={(e) => set('udyam_number', e.target.value.toUpperCase())} placeholder="UDYAM-XX-00-0000000" style={{ fontFamily: 'var(--mono)', textTransform: 'uppercase' }} disabled={isReadOnly} className={errors.udyam_number ? 'error' : ''} />
                     {errors.udyam_number && <span className="field-error">{errors.udyam_number}</span>}
                   </div>
                 </div>
@@ -850,7 +867,7 @@ export default function OnboardingFormPage() {
               <div className="card-title">
                 <div className="card-title-icon">📎</div>
                 Document Upload
-                <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto', fontWeight: 400 }}>PDF, JPG, PNG · Max 10 MB</span>
+                <span className="doc-upload-hint">PDF, JPG, PNG · Max 10 MB</span>
               </div>
 
               <div className="doc-section">
@@ -888,7 +905,7 @@ export default function OnboardingFormPage() {
                       {errors.gst_doc && <span className="field-error">{errors.gst_doc}</span>}
                     </>
                   ) : (
-                    <div style={{ padding: 12, textAlign: 'center', color: 'var(--muted)', fontSize: 13, background: 'var(--bg)', borderRadius: 'var(--radius)', border: '1px dashed var(--border-2)' }}>
+                    <div className="doc-empty-note">
                       🚫 <strong>Not required</strong> — No GST registration
                     </div>
                   )}
@@ -931,7 +948,7 @@ export default function OnboardingFormPage() {
                       {errors.msme_doc && <span className="field-error">{errors.msme_doc}</span>}
                     </>
                   ) : (
-                    <div style={{ padding: 12, textAlign: 'center', color: 'var(--mna)', fontSize: 13, background: 'var(--mna-bg)', borderRadius: 'var(--radius)' }}>
+                    <div className="doc-empty-note is-mna">
                       🚫 <strong>Not required</strong> — Status: MNA
                     </div>
                   )}
@@ -947,7 +964,7 @@ export default function OnboardingFormPage() {
                       <span>📄</span>
                       <span className="file-name">{doc.original_filename}</span>
                       {doc.file_url && (
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--brand)', textDecoration: 'underline' }}>View</a>
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="doc-view-link">View</a>
                       )}
                     </div>
                   </div>
@@ -957,9 +974,11 @@ export default function OnboardingFormPage() {
                   <div className="doc-card" key={doc.id}>
                     <div className="doc-card-head">
                       <div className="doc-card-title">📎 Additional Document</div>
-                      <button type="button" className="file-remove" onClick={() => removeExtraDoc(doc.id)} title="Remove">✕</button>
+                      <button type="button" className="file-remove" onClick={() => removeExtraDoc(doc.id)} title="Remove" aria-label="Remove this additional document">✕</button>
                     </div>
+                    <label htmlFor={`extra-doc-label-${doc.id}`} className="sr-only">Document name</label>
                     <input
+                      id={`extra-doc-label-${doc.id}`}
                       type="text"
                       value={doc.label}
                       onChange={(e) => updateExtraDoc(doc.id, { label: e.target.value })}
@@ -1000,7 +1019,7 @@ export default function OnboardingFormPage() {
                 <div className="summary-row"><span className="summary-key">Phones</span><span className="summary-val">{form.phones.filter(Boolean).join(', ')}</span></div>
                 <div className="summary-row"><span className="summary-key">City / District</span><span className="summary-val">{form.city}, {form.district}</span></div>
                 <div className="summary-row"><span className="summary-key">State / PIN</span><span className="summary-val">{form.state} — {form.pincode}</span></div>
-                <div className="summary-row" style={{ gridColumn: 'span 2' }}><span className="summary-key">Address</span><span className="summary-val">{[form.street1, form.street2, form.street3, form.street4].filter(Boolean).join(', ')}</span></div>
+                <div className="summary-row span-2"><span className="summary-key">Address</span><span className="summary-val">{[form.street1, form.street2, form.street3, form.street4].filter(Boolean).join(', ')}</span></div>
               </div>
             </div>
 
@@ -1037,7 +1056,7 @@ export default function OnboardingFormPage() {
                   const required = t === 'PAN' || t === 'CHEQUE' || (t === 'GST' && form.gst_applicable) || (t === 'MSME' && form.msme_applicable)
                   if (!required) return null
                   return (
-                    <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, background: f ? 'var(--success-bg)' : 'var(--danger-bg)', border: `1px solid ${f ? '#A7F3C5' : '#FCA5A5'}`, fontSize: 12, fontWeight: 500, color: f ? 'var(--success)' : 'var(--danger)' }}>
+                    <div key={t} className={`review-doc-chip ${f ? 'is-present' : 'is-missing'}`}>
                       {f ? '✅' : '⚠️'} {t} {f ? f.name : '(missing)'}
                     </div>
                   )
@@ -1046,7 +1065,7 @@ export default function OnboardingFormPage() {
             </div>
 
             {errors.submit && (
-              <div style={{ background: 'var(--danger-bg)', border: '1px solid #FCA5A5', borderRadius: 'var(--radius)', padding: '12px 16px', marginBottom: '1rem', fontSize: 13, color: 'var(--danger)' }}>
+              <div className="onboarding-error-banner" role="alert">
                 ❌ {errors.submit}
               </div>
             )}

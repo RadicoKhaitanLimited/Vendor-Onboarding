@@ -469,9 +469,9 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         </div>
 
         {draftRestored && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: 'var(--info-bg, #EEF2FF)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', marginBottom: '1rem', fontSize: 13 }}>
+          <div className="draft-restored-banner">
             <span>📝 Restored your unfinished draft from earlier. Please re-attach any documents — file uploads can't be saved automatically.</span>
-            <button type="button" className="btn btn-secondary" style={{ flexShrink: 0 }} onClick={discardDraft}>Discard &amp; start fresh</button>
+            <button type="button" className="btn-outline-gold" onClick={discardDraft}>Discard &amp; start fresh</button>
           </div>
         )}
 
@@ -483,8 +483,8 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
           </div>
           <div className="manual-type-grid">
             {[
-              { type: 'VENDOR',   label: 'Vendor',   desc: 'Supplier / manufacturer providing goods or services', color: '#4338CA', bg: '#EEF2FF', border: '#C7D2FE' },
-              { type: 'CUSTOMER', label: 'Customer',  desc: 'Buyer / distributor purchasing goods or services',    color: '#15803D', bg: '#DCFCE7', border: '#A7F3C5' },
+              { type: 'VENDOR',   label: 'Vendor',   desc: 'Supplier / manufacturer providing goods or services', color: 'var(--brand-dark)', bg: 'var(--brand-light)', border: 'rgba(26,86,219,.35)' },
+              { type: 'CUSTOMER', label: 'Customer',  desc: 'Buyer / distributor purchasing goods or services',    color: 'var(--gold-dark)', bg: 'var(--gold-light)', border: 'var(--gold-border)' },
             ].map(({ type, label, desc, color, bg, border }) => (
               <button
                 key={type}

@@ -429,7 +429,7 @@ export default function DashboardPage() {
             onClick={() => setStatusFilter('')}
             onKeyDown={(event) => handleStatFilterKeyDown(event, '')}
           >
-            <div className="stat-icon" style={{ background: '#EEF2FF', color: '#4338CA' }}>
+            <div className="stat-icon" style={{ background: 'var(--brand-light)', color: 'var(--brand)' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
                 <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
@@ -446,13 +446,13 @@ export default function DashboardPage() {
             onClick={() => setStatusFilter(PENDING_GROUP_FILTER)}
             onKeyDown={(event) => handleStatFilterKeyDown(event, PENDING_GROUP_FILTER)}
           >
-            <div className="stat-icon" style={{ background: '#FEF9C3', color: '#D97706' }}>
+            <div className="stat-icon" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
             </div>
             <div className="stat-label">{user?.role === 'BOSS' ? 'Pending Boss Approval' : 'Pending Review'}</div>
-            <div className="stat-value" style={{ color: '#854D0E' }}>{stats.pending ?? '—'}</div>
+            <div className="stat-value">{stats.pending ?? '—'}</div>
             <div className="stat-sub">Awaiting action</div>
           </div>
           <div
@@ -462,13 +462,13 @@ export default function DashboardPage() {
             onClick={() => setStatusFilter('APPROVED')}
             onKeyDown={(event) => handleStatFilterKeyDown(event, 'APPROVED')}
           >
-            <div className="stat-icon" style={{ background: '#DCFCE7', color: '#166534' }}>
+            <div className="stat-icon" style={{ background: 'var(--success-bg)', color: 'var(--success)' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
             </div>
             <div className="stat-label">Approved</div>
-            <div className="stat-value" style={{ color: '#166534' }}>{stats.approved ?? '—'}</div>
+            <div className="stat-value">{stats.approved ?? '—'}</div>
             <div className="stat-sub">Active registrations</div>
           </div>
           <div
@@ -478,13 +478,13 @@ export default function DashboardPage() {
             onClick={() => setStatusFilter('REJECTED')}
             onKeyDown={(event) => handleStatFilterKeyDown(event, 'REJECTED')}
           >
-            <div className="stat-icon" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
+            <div className="stat-icon" style={{ background: 'var(--danger-bg)', color: 'var(--danger)' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
               </svg>
             </div>
             <div className="stat-label">Rejected</div>
-            <div className="stat-value" style={{ color: '#B91C1C' }}>{stats.rejected ?? '—'}</div>
+            <div className="stat-value">{stats.rejected ?? '—'}</div>
             <div className="stat-sub">Needs correction</div>
           </div>
         </div>
@@ -596,11 +596,21 @@ export default function DashboardPage() {
           )}
 
           {loading ? (
-            <div className="empty-state">Loading registrations<div className="loading-shimmer" /></div>
+            <div className="empty-state" role="status" aria-live="polite">
+              <div className="spinner spinner-dark" />
+              <p>Loading registrations…</p>
+            </div>
           ) : onboardings.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📋</div>
-              <p>No registrations found.</p>
+              {search || typeFilter || startDate || endDate || statusFilter !== PENDING_GROUP_FILTER ? (
+                <>
+                  <p>No registrations match your filters.</p>
+                  <p className="hint">Try adjusting or clearing the search, type, status, or date filters.</p>
+                </>
+              ) : (
+                <p>No registrations found.</p>
+              )}
             </div>
           ) : (
             <table>
@@ -611,6 +621,7 @@ export default function DashboardPage() {
                       <label className="row-check">
                         <input
                           type="checkbox"
+                          aria-label="Select all eligible rows"
                           onClick={(event) => event.stopPropagation()}
                           onChange={toggleSelectAll}
                           checked={

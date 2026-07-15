@@ -21,9 +21,10 @@ export default function MultiEntryField({ values, onChange, type = 'text', place
             placeholder={placeholder}
             disabled={disabled}
             maxLength={isPhone ? 10 : undefined}
+            aria-label={`${tag} ${i + 1}`}
           />
           {values.length > 1 && !disabled && (
-            <button type="button" className="btn-remove-entry" onClick={() => remove(i)} title="Remove">✕</button>
+            <button type="button" className="btn-remove-entry" onClick={() => remove(i)} title="Remove" aria-label={`Remove ${tag} ${i + 1}`}>✕</button>
           )}
         </div>
       ))}
