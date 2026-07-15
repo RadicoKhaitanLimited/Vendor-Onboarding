@@ -124,6 +124,7 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
     approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True)
     documents = serializers.SerializerMethodField()
     approval_history = serializers.SerializerMethodField()
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
         model = Onboarding
@@ -131,6 +132,16 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'onboarding_code', 'created_by', 'approved_by', 'approved_at', 'created_at', 'updated_at',
         ]
+
+    def to_internal_value(self, data):
+        # DateField rejects '' outright (it only tolerates omission or null),
+        # but the frontend sends '' for an unset date — normalize before DRF's
+        # own parsing runs, otherwise an untouched, non-required DOB field
+        # blocks the entire save with an error the user never sees tied to it.
+        if 'date_of_birth' in data and data.get('date_of_birth') == '':
+            data = data.copy()
+            data['date_of_birth'] = None
+        return super().to_internal_value(data)
 
     def get_documents(self, obj):
         from apps.documents.serializers import DocumentSerializer

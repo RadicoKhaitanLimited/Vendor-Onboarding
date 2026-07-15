@@ -564,7 +564,7 @@ export default function EditOnboardingModal({
 
   const handleSendToBoss = async () => {
     if (!approvalBoss) {
-      toast.error('Select boss', 'Please select the boss for approval.')
+      toast.error('Select approver', 'Please select the approver/manager for approval.')
       return
     }
 
@@ -579,7 +579,7 @@ export default function EditOnboardingModal({
     }
     const verificationMessages = getApprovalValidationMessages(verificationRecord)
     if (verificationMessages.length) {
-      toast.error('Cannot send to boss', verificationMessages.join(' '))
+      toast.error('Cannot send for approval', verificationMessages.join(' '))
       return
     }
 
@@ -589,14 +589,14 @@ export default function EditOnboardingModal({
       && (!form.gst_applicable || documentTypes.has('GST'))
       && (isCustomer || !form.msme_applicable || documentTypes.has('MSME'))
     if (!hasRequiredDocuments) {
-      toast.error('Cannot send to boss', 'Upload the required documents before approval.')
+      toast.error('Cannot send for approval', 'Upload the required documents before approval.')
       return
     }
 
     setSendingToBoss(true)
     try {
       await api.post(`/onboarding/${data.id}/send-to-boss/`, { approval_boss: approvalBoss })
-      toast.success('Sent to boss', 'Request has been sent for boss approval.')
+      toast.success('Sent for approval', 'Request has been sent to the approver/manager.')
       setApprovalBoss('')
       onSaved()
     } catch (err) {
@@ -604,7 +604,7 @@ export default function EditOnboardingModal({
       const validationMessage = responseData && typeof responseData === 'object'
         ? Object.values(responseData).flat().join(' ')
         : ''
-      toast.error('Failed', validationMessage || responseData?.detail || 'Could not send request to boss.')
+      toast.error('Failed', validationMessage || responseData?.detail || 'Could not send request for approval.')
     } finally {
       setSendingToBoss(false)
     }
@@ -669,6 +669,16 @@ export default function EditOnboardingModal({
       toast.error(
         "Validation Error",
         "Please enter PAN Number"
+      )
+
+      return
+    }
+
+    if (!form.date_of_birth) {
+
+      toast.error(
+        "Date of Birth required",
+        "Enter and save the Date of Birth/Commencement before verifying PAN."
       )
 
       return
@@ -946,6 +956,7 @@ export default function EditOnboardingModal({
                 value={form.date_of_birth}
                 onChange={(e) => set('date_of_birth', e.target.value)}
               />
+              <span className="hint">Required to verify PAN — save changes before verifying.</span>
             </div>
             <div className="field span-2">
   <label>PAN Number</label>
@@ -1585,18 +1596,18 @@ export default function EditOnboardingModal({
         {/* ── Send to boss ── */}
         {user?.role === 'EMPLOYEE' && ['DRAFT', 'PENDING'].includes(data.status) && (
           <div className="card" style={{ marginBottom: '1rem' }}>
-            <div className="card-title"><div className="card-title-icon">✓</div>Send For Boss Approval</div>
+            <div className="card-title"><div className="card-title-icon">✓</div>Send For Approver/Manager Approval</div>
             <div className="field" style={{ marginBottom: '1rem' }}>
-              <label>Select Boss <span className="req">*</span></label>
+              <label>Select Approver/Manager <span className="req">*</span></label>
               <select value={approvalBoss} onChange={(e) => setApprovalBoss(e.target.value)}>
-                <option value="">Select boss</option>
+                <option value="">Select approver/manager</option>
                 {bossOptions.map((boss) => (
                   <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
                 ))}
               </select>
             </div>
             <button className="btn btn-primary" onClick={handleSendToBoss} disabled={sendingToBoss}>
-              {sendingToBoss ? <><div className="spinner" /> Sending...</> : 'Send to Boss'}
+              {sendingToBoss ? <><div className="spinner" /> Sending...</> : 'Send to Approver/Manager'}
             </button>
           </div>
         )}

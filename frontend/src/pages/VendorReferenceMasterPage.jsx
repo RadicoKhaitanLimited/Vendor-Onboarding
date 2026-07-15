@@ -237,8 +237,9 @@ export default function VendorReferenceMasterPage() {
               <label>Vendor Reference Code</label>
               <input
                 type="text"
+                inputMode="numeric"
                 value={lookupCode}
-                onChange={(event) => setLookupCode(event.target.value)}
+                onChange={(event) => setLookupCode(event.target.value.replace(/\D/g, ''))}
                 placeholder="100001"
                 required
               />

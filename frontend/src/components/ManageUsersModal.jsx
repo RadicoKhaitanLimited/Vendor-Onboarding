@@ -4,6 +4,8 @@ import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 
+const ROLE_LABELS = { BOSS: 'APPROVER / MANAGER', ADMIN: 'ADMIN', EMPLOYEE: 'EMPLOYEE' }
+
 export default function ManageUsersModal({ onClose }) {
   const toast = useToast()
   const { user } = useAuth()
@@ -93,7 +95,7 @@ export default function ManageUsersModal({ onClose }) {
         <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: '1.25rem' }}>
           {user?.role === 'BOSS'
             ? 'Employees assigned under your approval hierarchy.'
-            : 'Create Boss and Employee users. Employees can be assigned under one or more Bosses.'}
+            : 'Create Approver/Manager and Employee users. Employees can be assigned under one or more Approvers/Managers.'}
         </p>
 
         {canManageUsers && showForm ? (
@@ -124,19 +126,19 @@ export default function ManageUsersModal({ onClose }) {
                 <label>Role <span className="req">*</span></label>
                 <select value={form.role} onChange={(event) => updateForm('role', event.target.value)} required>
                   <option value="EMPLOYEE">Employee</option>
-                  <option value="BOSS">Boss / Manager</option>
+                  <option value="BOSS">Approver / Manager</option>
                   {user?.is_superuser && <option value="ADMIN">Admin</option>}
                 </select>
               </div>
               {form.role === 'EMPLOYEE' && (
                 <div className="field">
-                  <label>Assign Bosses <span className="req">*</span></label>
+                  <label>Assign Approvers/Managers <span className="req">*</span></label>
                   <select value={form.bosses} onChange={updateBosses} multiple required size={Math.min(Math.max(bosses.length, 3), 6)}>
                     {bosses.map((boss) => (
                       <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
                     ))}
                   </select>
-                  <small style={{ color: 'var(--muted)', fontSize: 12 }}>Hold Ctrl to select multiple bosses.</small>
+                  <small style={{ color: 'var(--muted)', fontSize: 12 }}>Hold Ctrl to select multiple approvers/managers.</small>
                 </div>
               )}
               <div className="field">
@@ -182,7 +184,7 @@ export default function ManageUsersModal({ onClose }) {
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   <th style={{ textAlign: 'left', padding: '8px 12px' }}>Name / Email</th>
                   <th style={{ textAlign: 'left', padding: '8px 12px' }}>Role</th>
-                  <th style={{ textAlign: 'left', padding: '8px 12px' }}>Boss / Team</th>
+                  <th style={{ textAlign: 'left', padding: '8px 12px' }}>Approver / Team</th>
                   <th style={{ textAlign: 'left', padding: '8px 12px' }}>Created</th>
                 </tr>
               </thead>
@@ -200,7 +202,7 @@ export default function ManageUsersModal({ onClose }) {
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <span className="badge badge-optional">
-                        {user.is_superuser ? 'SUPERUSER' : user.role}
+                        {user.is_superuser ? 'SUPERUSER' : (ROLE_LABELS[user.role] || user.role)}
                       </span>
                     </td>
                     <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>

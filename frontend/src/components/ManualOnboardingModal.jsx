@@ -376,6 +376,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         street2:             form.street2,
         street3:             form.street3,
         street4:             form.street4,
+        date_of_birth:       form.date_of_birth || null,
         pan_number:          form.pan_number ? form.pan_number.toUpperCase() : '',
         pan_name:            form.pan_name,
         gst_applicable:      form.gst_applicable ?? false,

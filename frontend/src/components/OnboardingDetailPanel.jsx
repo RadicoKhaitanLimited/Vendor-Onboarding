@@ -9,7 +9,7 @@ const STATUS_CLASS = {
   APPROVED: 's-approved', REJECTED: 's-rejected',
 }
 const STATUS_LABEL = {
-  DRAFT: 'Draft', PENDING: 'Pending', PENDING_BOSS_APPROVAL: 'Pending Boss Approval', UNDER_REVIEW: 'Under Review',
+  DRAFT: 'Draft', PENDING: 'Pending', PENDING_BOSS_APPROVAL: 'Pending Approver/Manager Approval', UNDER_REVIEW: 'Under Review',
   APPROVED: 'Approved', REJECTED: 'Rejected',
 }
 
@@ -110,7 +110,7 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
                 <SummaryRow label="Created On" value={formatDateTime(data.created_at)} />
                 <SummaryRow label="Updated On" value={formatDateTime(data.updated_at)} />
                 <SummaryRow label="Created By" value={data.created_by_email} />
-                <SummaryRow label="Assigned Boss" value={data.assigned_boss_email} />
+                <SummaryRow label="Assigned Approver/Manager" value={data.assigned_boss_email} />
               </div>
             </div>
 

@@ -15,7 +15,7 @@ const STATUS_CLASS = {
   APPROVED: 's-approved', REJECTED: 's-rejected',
 }
 const STATUS_LABEL = {
-  DRAFT: 'Draft', PENDING: 'Pending', PENDING_BOSS_APPROVAL: 'Pending Boss Approval', UNDER_REVIEW: 'Under Review',
+  DRAFT: 'Draft', PENDING: 'Pending', PENDING_BOSS_APPROVAL: 'Pending Approver/Manager Approval', UNDER_REVIEW: 'Under Review',
   APPROVED: 'Approved', REJECTED: 'Rejected',
 }
 const PENDING_GROUP_FILTER = 'PENDING_GROUP'
@@ -208,7 +208,7 @@ export default function DashboardPage() {
 
   const handleBulkSendToBoss = async () => {
     if (!bulkSendBoss) {
-      toast.error('Select boss', 'Please select the boss for approval.')
+      toast.error('Select approver', 'Please select the approver/manager for approval.')
       return
     }
     setBulkSending(true)
@@ -218,7 +218,7 @@ export default function DashboardPage() {
         approval_boss: bulkSendBoss,
       })
       if (data.sent_count > 0) {
-        toast.success('Sent to boss', `${data.sent_count} record(s) sent${data.failed_count ? `, ${data.failed_count} failed` : '.'}`)
+        toast.success('Sent for approval', `${data.sent_count} record(s) sent${data.failed_count ? `, ${data.failed_count} failed` : '.'}`)
       }
       if (data.failed_count > 0) {
         const firstFailure = data.failed[0]
@@ -231,7 +231,7 @@ export default function DashboardPage() {
     } catch (err) {
       const data = err.response?.data
       const message = data && typeof data === 'object' ? Object.values(data).flat().join(' ') : ''
-      toast.error('Failed', message || 'Could not send selected records to boss.')
+      toast.error('Failed', message || 'Could not send selected records for approval.')
     } finally {
       setBulkSending(false)
     }
@@ -451,7 +451,7 @@ export default function DashboardPage() {
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
             </div>
-            <div className="stat-label">{user?.role === 'BOSS' ? 'Pending Boss Approval' : 'Pending Review'}</div>
+            <div className="stat-label">{user?.role === 'BOSS' ? 'Pending Approver/Manager Approval' : 'Pending Review'}</div>
             <div className="stat-value">{stats.pending ?? '—'}</div>
             <div className="stat-sub">Awaiting action</div>
           </div>
@@ -521,7 +521,7 @@ export default function DashboardPage() {
                 <option value={PENDING_GROUP_FILTER}>All Pending</option>
                 <option value="DRAFT">Draft</option>
                 <option value="PENDING">Pending</option>
-                <option value="PENDING_BOSS_APPROVAL">Pending Boss Approval</option>
+                <option value="PENDING_BOSS_APPROVAL">Pending Approver/Manager Approval</option>
                 <option value="UNDER_REVIEW">Under Review</option>
                 <option value="APPROVED">Approved</option>
                 <option value="REJECTED">Rejected</option>
@@ -560,7 +560,7 @@ export default function DashboardPage() {
               <label className="bulk-action-boss-field">
                 <span>Send to</span>
                 <select value={bulkSendBoss} onChange={(e) => setBulkSendBoss(e.target.value)}>
-                  <option value="">Select boss…</option>
+                  <option value="">Select approver/manager…</option>
                   {(user.boss_details || []).map((boss) => (
                     <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
                   ))}
@@ -568,7 +568,7 @@ export default function DashboardPage() {
               </label>
               <div className="bulk-action-buttons">
                 <button className="btn btn-primary" onClick={handleBulkSendToBoss} disabled={bulkSending || !bulkSendBoss}>
-                  {bulkSending ? <><div className="spinner" /> Sending...</> : `Send ${selectedIds.length} to Boss`}
+                  {bulkSending ? <><div className="spinner" /> Sending...</> : `Send ${selectedIds.length} for Approval`}
                 </button>
                 <button className="btn btn-secondary" onClick={() => setSelectedIds([])} disabled={bulkSending}>
                   Clear Selection
@@ -667,7 +667,7 @@ export default function DashboardPage() {
                             selectable
                               ? ''
                               : user?.role === 'EMPLOYEE'
-                                ? 'PAN and GST must both be verified before sending to boss'
+                                ? 'PAN and GST must both be verified before sending for approval'
                                 : 'Already finalized'
                           }
                         >

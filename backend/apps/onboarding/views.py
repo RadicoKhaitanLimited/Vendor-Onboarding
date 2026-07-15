@@ -1732,6 +1732,12 @@ class VerifyPANAPIView(APIView):
                 status=400
             )
 
+        if not dob:
+            return Response(
+                {"error": "Date of Birth/Commencement is required to verify PAN. Please fill it in and save before verifying."},
+                status=400
+            )
+
         try:
 
             onboarding = Onboarding.objects.get(

@@ -6,9 +6,7 @@ export default function VendorReferenceLookupFields({
   onCodeChange,
   onRangeChange,
   onMappingChange,
-  isCustomer,
 }) {
-  const referenceLabel = isCustomer ? 'Customer Reference' : 'Vendor Reference'
   const [lookupValue, setLookupValue] = useState(code || '')
   const [loading, setLoading] = useState(false)
   const [mapping, setMapping] = useState(null)
@@ -17,6 +15,9 @@ export default function VendorReferenceLookupFields({
   useEffect(() => {
     setLookupValue(code || '')
   }, [code])
+
+  const MAX_LENGTH = 6
+  const INVALID_MESSAGE = 'Please provide the right business partner number.'
 
   useEffect(() => {
     const enteredValue = String(lookupValue || '').trim()
@@ -38,10 +39,10 @@ export default function VendorReferenceLookupFields({
         onRangeChange?.(data.vendor_reference_range)
         onMappingChange?.(data)
         setMessage('')
-      } catch (error) {
+      } catch {
         setMapping(null)
         onMappingChange?.(null)
-        setMessage(error.response?.data?.detail || `No ${referenceLabel} Master mapping found for this value.`)
+        setMessage(INVALID_MESSAGE)
       } finally {
         setLoading(false)
       }
@@ -53,25 +54,29 @@ export default function VendorReferenceLookupFields({
   return (
     <div className="vendor-ref-result span-2">
       <div className="field vendor-ref-range-field">
-        <label>{referenceLabel} Code</label>
+        <label>Business Partner Number</label>
         <input
           type="text"
+          inputMode="numeric"
           value={lookupValue}
+          maxLength={MAX_LENGTH}
           onChange={(event) => {
-            setLookupValue(event.target.value)
-            onCodeChange?.(event.target.value)
+            const digitsOnly = event.target.value.replace(/\D/g, '').slice(0, MAX_LENGTH)
+            setLookupValue(digitsOnly)
+            onCodeChange?.(digitsOnly)
             onRangeChange?.('')
           }}
-          placeholder={`Enter ${referenceLabel.toLowerCase()} code`}
+          placeholder="Enter business partner number"
           style={{ fontFamily: 'var(--mono)' }}
+          className={!loading && message ? 'error' : ''}
         />
       </div>
 
       <div className="vendor-ref-result-head">
-        <span>{referenceLabel} Master</span>
+        <span>Vendor Reference Master</span>
         {loading && <strong>Fetching...</strong>}
         {!loading && mapping && <strong>Matched {mapping.vendor_reference_range_display}</strong>}
-        {!loading && !mapping && message && <strong className="warn">Pending</strong>}
+        {!loading && !mapping && message && <strong className="warn">Not found</strong>}
       </div>
 
       {mapping ? (
@@ -102,7 +107,7 @@ export default function VendorReferenceLookupFields({
           </div>
         </div>
       ) : (
-        <div className="vendor-ref-empty">{message || `Enter a ${referenceLabel} Code to fetch GL details.`}</div>
+        <div className="vendor-ref-empty">{message || 'Enter a Business Partner Number to fetch GL details.'}</div>
       )}
     </div>
   )
