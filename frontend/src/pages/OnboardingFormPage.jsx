@@ -119,7 +119,6 @@ export default function OnboardingFormPage() {
     bank_name: '',
     branch_name: '',
     account_number: '',
-    confirm_account_number: '',
     ifsc_code: '',
     msme_applicable: null,
     msme_category: '',
@@ -159,7 +158,6 @@ export default function OnboardingFormPage() {
             bank_name: ob.bank_name || '',
             branch_name: ob.branch_name || '',
             account_number: ob.account_number || '',
-            confirm_account_number: ob.account_number || '',
             ifsc_code: ob.ifsc_code || '',
             msme_applicable: ob.msme_applicable != null ? ob.msme_applicable : null,
             msme_category: normalizeMsmeCode(ob.msme_category || ob.msme_status || ''),
@@ -239,9 +237,6 @@ export default function OnboardingFormPage() {
       if (shouldRequire('account_number') && !accountNumber) e.account_number = 'Account number is required.'
       else if (accountNumber && !isValidAccountNumber(accountNumber)) e.account_number = 'Account number must be 9-34 alphanumeric characters, no spaces.'
 
-      if (shouldRequire('confirm_account_number') && !nextForm.confirm_account_number.trim()) e.confirm_account_number = 'Please confirm the account number.'
-      else if (nextForm.confirm_account_number.trim() && nextForm.confirm_account_number.trim() !== accountNumber) e.confirm_account_number = 'Account numbers do not match.'
-
       if (!nextForm.ifsc_code) {
         if (shouldRequire('ifsc_code')) e.ifsc_code = 'Invalid IFSC format.'
       } else if (!IFSC_RE.test(nextForm.ifsc_code.toUpperCase())) {
@@ -284,7 +279,6 @@ export default function OnboardingFormPage() {
       bank_name: true,
       branch_name: true,
       account_number: true,
-      confirm_account_number: true,
       ifsc_code: true,
       msme_applicable: true,
       msme_category: true,
@@ -407,7 +401,7 @@ export default function OnboardingFormPage() {
 
   // ── Step 2 validation ──
   const validateStep2 = () => {
-    const e = pickErrors(validateAll(), ['pan_number', 'pan_name', 'gst_applicable', 'gst_number', 'account_holder_name', 'bank_name', 'branch_name', 'account_number', 'confirm_account_number', 'ifsc_code'])
+    const e = pickErrors(validateAll(), ['pan_number', 'pan_name', 'gst_applicable', 'gst_number', 'account_holder_name', 'bank_name', 'branch_name', 'account_number', 'ifsc_code'])
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -779,11 +773,6 @@ export default function OnboardingFormPage() {
                   <label>Account Number <span className="req">*</span></label>
                   <input type="text" value={form.account_number} onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))} placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.account_number ? 'error' : ''} />
                   {errors.account_number && <span className="field-error">{errors.account_number}</span>}
-                </div>
-                <div className="field">
-                  <label>Confirm Account Number <span className="req">*</span></label>
-                  <input type="text" value={form.confirm_account_number} onChange={(e) => set('confirm_account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))} onPaste={(e) => e.preventDefault()} placeholder="Re-enter account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.confirm_account_number ? 'error' : ''} />
-                  {errors.confirm_account_number && <span className="field-error">{errors.confirm_account_number}</span>}
                 </div>
                 <div className="field">
                   <label>IFSC Code <span className="req">*</span></label>
