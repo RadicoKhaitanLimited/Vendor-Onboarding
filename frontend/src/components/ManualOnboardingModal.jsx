@@ -12,6 +12,7 @@ import SalesOrganizationSelect from './SalesOrganizationSelect'
 import DistributionChannelSelect from './DistributionChannelSelect'
 import DivisionSelect from './DivisionSelect'
 import TransportationZoneSelect from './TransportationZoneSelect'
+import DeliveryPlantSelect from './DeliveryPlantSelect'
 import CustomerCompanyCodeSelect from './CustomerCompanyCodeSelect'
 import CustomerSearchTermSelect from './CustomerSearchTermSelect'
 import SalesReferenceOrgSelect from './SalesReferenceOrgSelect'
@@ -100,6 +101,7 @@ const EMPTY_FORM = {
   sales_organization:      [],
   distribution_channel:    '',
   division:                '',
+  delivery_plant:          '',
   transportation_zone:     '',
   customer_company_code:   '',
 }
@@ -403,6 +405,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         sales_organization:       isCustomer ? form.sales_organization : [],
         distribution_channel:     isCustomer ? form.distribution_channel : '',
         division:                 isCustomer ? form.division : '',
+        delivery_plant:           isCustomer ? form.delivery_plant : '',
         transportation_zone:      isCustomer ? form.transportation_zone : '',
         customer_company_code:    isCustomer ? form.customer_company_code : '',
       })
@@ -810,6 +813,15 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                     <div className="field">
                       <label>Division</label>
                       <DivisionSelect value={form.division} onChange={(value) => set('division', value)} />
+                    </div>
+                    <div className="field">
+                      <label>Delivery Plant</label>
+                      <DeliveryPlantSelect
+                        value={form.delivery_plant}
+                        onChange={(value) => set('delivery_plant', value)}
+                        salesOrganizations={form.sales_organization}
+                        distributionChannel={form.distribution_channel}
+                      />
                     </div>
                   </div>
                 </div>

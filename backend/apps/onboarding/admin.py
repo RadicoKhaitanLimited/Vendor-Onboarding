@@ -5,6 +5,7 @@ from .models import (
     TDSCodeMaster, SearchTermMaster,
     SalesOrganizationMaster, DistributionChannelMaster, DivisionMaster,
     TransportationZoneMaster, CustomerCompanyCodeMaster, CustomerSearchTermMaster,
+    DeliveryPlantMaster,
 )
 
 
@@ -113,4 +114,12 @@ class CustomerCompanyCodeMasterAdmin(admin.ModelAdmin):
 class CustomerSearchTermMasterAdmin(admin.ModelAdmin):
     list_display = ['search_term', 'applicable_for', 'updated_at']
     search_fields = ['search_term', 'applicable_for']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(DeliveryPlantMaster)
+class DeliveryPlantMasterAdmin(admin.ModelAdmin):
+    list_display = ['plant', 'plant_name', 'sales_organization', 'distribution_channel', 'updated_at']
+    search_fields = ['plant', 'plant_name', 'sales_organization', 'distribution_channel']
+    list_filter = ['sales_organization', 'distribution_channel']
     readonly_fields = ['created_at', 'updated_at']

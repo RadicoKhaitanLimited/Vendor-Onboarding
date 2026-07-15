@@ -10,6 +10,7 @@ from .views import (
     SearchTermListView,VerifyPANAPIView,VerifyPANAPIView,VerifyGSTAPIView,
     SalesOrganizationListView, DistributionChannelListView, DivisionListView,
     TransportationZoneListView, CustomerCompanyCodeListView, CustomerSearchTermListView,
+    DeliveryPlantListView,
 )
 
 urlpatterns = [
@@ -46,6 +47,7 @@ urlpatterns = [
     path('transportation-zones/', TransportationZoneListView.as_view(), name='transportation_zone_list'),
     path('customer-company-codes/', CustomerCompanyCodeListView.as_view(), name='customer_company_code_list'),
     path('customer-search-terms/', CustomerSearchTermListView.as_view(), name='customer_search_term_list'),
+    path('delivery-plants/', DeliveryPlantListView.as_view(), name='delivery_plant_list'),
     # path('verify-pan/', VerifyPANAPIView.as_view(),name='verify-pan'),
     path("verify-pan/",VerifyPANAPIView.as_view(), name="verify-pan"),
     path("verify-gst/", VerifyGSTAPIView.as_view(), name="verify-gst"),

@@ -150,6 +150,7 @@ class Onboarding(models.Model):
     sales_organization = models.JSONField(default=list, blank=True)
     distribution_channel = models.CharField(max_length=50, blank=True)
     division = models.CharField(max_length=50, blank=True)
+    delivery_plant = models.CharField(max_length=20, blank=True)
 
     # Workflow
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='DRAFT')
@@ -516,3 +517,24 @@ class CustomerSearchTermMaster(models.Model):
 
     def __str__(self):
         return f"{self.search_term} - {self.applicable_for}"
+
+
+class DeliveryPlantMaster(models.Model):
+    plant = models.CharField(max_length=20, unique=True)
+    plant_name = models.CharField(max_length=255)
+    sales_organization = models.CharField(max_length=20, blank=True)
+    distribution_channel = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'delivery_plant_masters'
+        ordering = ['plant']
+
+    def clean(self):
+        self.plant = self.plant.strip().upper()
+        if not self.plant:
+            raise ValidationError({'plant': 'Plant is required.'})
+
+    def __str__(self):
+        return f"{self.plant} - {self.plant_name}"

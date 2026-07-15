@@ -14,6 +14,7 @@ from .models import (
     SearchTermMaster, OnboardingApprovalHistory,
     SalesOrganizationMaster, DistributionChannelMaster, DivisionMaster,
     TransportationZoneMaster, CustomerCompanyCodeMaster, CustomerSearchTermMaster,
+    DeliveryPlantMaster,
     VENDOR_REFERENCE_RANGES, get_vendor_reference_range_for_code,
 )
 from .serializers import (
@@ -1535,6 +1536,29 @@ class CustomerSearchTermListView(APIView):
                 'applicable_for': search_term.applicable_for,
             }
             for search_term in search_terms
+        ])
+
+
+class DeliveryPlantListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        plants = DeliveryPlantMaster.objects.order_by('plant')
+        sales_organization = request.query_params.get('sales_organization', '').strip().upper()
+        distribution_channel = request.query_params.get('distribution_channel', '').strip().upper()
+        if sales_organization:
+            plants = plants.filter(sales_organization=sales_organization)
+        if distribution_channel:
+            plants = plants.filter(distribution_channel=distribution_channel)
+        return Response([
+            {
+                'value': plant.plant,
+                'label': f'{plant.plant} - {plant.plant_name}',
+                'plant_name': plant.plant_name,
+                'sales_organization': plant.sales_organization,
+                'distribution_channel': plant.distribution_channel,
+            }
+            for plant in plants
         ])
 
 

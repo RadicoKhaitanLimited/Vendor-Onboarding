@@ -186,6 +186,7 @@ export default function OnboardingDetailPanel({ id, onClose, onUpdated }) {
                 {isCustomer && <SummaryRow label="Sales Organization" value={data.sales_organization?.join(', ')} mono />}
                 {isCustomer && <SummaryRow label="Distribution Channel" value={data.distribution_channel} />}
                 {isCustomer && <SummaryRow label="Division" value={data.division} />}
+                {isCustomer && <SummaryRow label="Delivery Plant" value={data.delivery_plant} mono />}
                 {isCustomer && <SummaryRow label="Transportation Zone" value={data.transportation_zone} />}
                 {!isCustomer && <SummaryRow label="Reference Purchase Orgs" value={data.reference_purchase_orgs?.join(', ')} mono />}
                 {!isCustomer && <SummaryRow label="Search Term" value={data.search_term} mono />}
