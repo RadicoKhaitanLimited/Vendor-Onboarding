@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
 import MultiEntryField from './MultiEntryField'
@@ -19,6 +19,8 @@ import { MSME_REGISTERED_OPTIONS, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
 import { isPanNameEditable } from '../utils/panName'
+import { useCityPincodeSync } from '../utils/useCityPincodeSync'
+import { useIfscVerification } from '../utils/useIfscVerification'
 
 const INDIAN_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
@@ -36,9 +38,16 @@ const BANKS = [
   'Indian Bank','Central Bank of India','Bank of India','Other',
 ]
 
-const PAN_RE  = /^[A-Z]{5}[0-9]{4}[A-Z]$/
-const GST_RE  = /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/
-const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/
+const PAN_RE            = /^[A-Z]{5}[0-9]{4}[A-Z]$/
+const GST_RE            = /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/
+const IFSC_RE           = /^[A-Z]{4}0[A-Z0-9]{6}$/
+const EMAIL_RE          = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+const PHONE_RE          = /^(?:\+91|91|0)?[6-9]\d{9}$/
+const ACCOUNT_NUMBER_RE = /^[A-Za-z0-9]{9,34}$/
+
+const isValidEmail = (value) => EMAIL_RE.test(value.trim())
+const isValidPhone = (value) => PHONE_RE.test(value.trim().replace(/[\s-]/g, ''))
+const isValidAccountNumber = (value) => ACCOUNT_NUMBER_RE.test(value.trim())
 
 const DOC_TYPES = [
   { type: 'PAN',    label: 'PAN Card',          icon: '🪪' },
@@ -95,13 +104,44 @@ const EMPTY_FORM = {
   customer_company_code:   '',
 }
 
+const DRAFT_STORAGE_KEY = 'manual-onboarding-draft'
+
+function readSavedDraft() {
+  try {
+    const saved = window.localStorage.getItem(DRAFT_STORAGE_KEY)
+    if (!saved) return null
+    const parsed = JSON.parse(saved)
+    return { ...EMPTY_FORM, ...parsed }
+  } catch {
+    return null
+  }
+}
+
+function clearSavedDraft() {
+  try {
+    window.localStorage.removeItem(DRAFT_STORAGE_KEY)
+  } catch {
+    // localStorage unavailable — nothing to clear.
+  }
+}
+
+function hasNonEmptyValue(form) {
+  return Object.entries(form).some(([key, value]) => {
+    if (key === 'country') return false
+    if (Array.isArray(value)) return value.some(Boolean)
+    return Boolean(value)
+  })
+}
+
 export default function ManualOnboardingModal({ onClose, onCreated }) {
   const toast = useToast()
+  const savedDraft = useRef(readSavedDraft()).current
+  const [draftRestored, setDraftRestored] = useState(() => Boolean(savedDraft && hasNonEmptyValue(savedDraft)))
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm] = useState(() => savedDraft || EMPTY_FORM)
   const [files, setFiles] = useState({ PAN: null, GST: null, CHEQUE: null, MSME: null })
   const [extraDocs, setExtraDocs] = useState([])
 
@@ -111,8 +151,13 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
 
     if (shouldRequire('onboarding_type') && !nextForm.onboarding_type) e.onboarding_type = 'Please select Vendor or Customer.'
     if (shouldRequire('company_name') && !nextForm.company_name.trim()) e.company_name = 'Company name is required.'
-    if (shouldRequire('emails') && !nextForm.emails.filter(Boolean).length) e.emails = 'At least one email is required.'
-    if (shouldRequire('phones') && !nextForm.phones.filter(Boolean).length) e.phones = 'At least one phone number is required.'
+    const nonEmptyEmails = nextForm.emails.filter(Boolean)
+    if (shouldRequire('emails') && !nonEmptyEmails.length) e.emails = 'At least one email is required.'
+    else if (nonEmptyEmails.some((email) => !isValidEmail(email))) e.emails = 'Enter valid email address(es).'
+
+    const nonEmptyPhones = nextForm.phones.filter(Boolean)
+    if (shouldRequire('phones') && !nonEmptyPhones.length) e.phones = 'At least one phone number is required.'
+    else if (nonEmptyPhones.some((phone) => !isValidPhone(phone))) e.phones = 'Enter valid 10-digit phone number(s).'
     if (shouldRequire('city') && !nextForm.city.trim()) e.city = 'City is required.'
     if (shouldRequire('state') && !nextForm.state) e.state = 'State is required.'
     if (shouldRequire('pincode') && (!nextForm.pincode || nextForm.pincode.length !== 6)) e.pincode = '6-digit PIN code is required.'
@@ -150,7 +195,10 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
       if (shouldRequire('account_holder_name') && !nextForm.account_holder_name.trim()) e.account_holder_name = 'Account holder name is required.'
       if (shouldRequire('bank_name') && !nextForm.bank_name) e.bank_name = 'Bank name is required.'
       if (shouldRequire('branch_name') && !nextForm.branch_name.trim()) e.branch_name = 'Branch name is required.'
-      if (shouldRequire('account_number') && !nextForm.account_number.trim()) e.account_number = 'Account number is required.'
+      const accountNumber = nextForm.account_number.trim()
+      if (shouldRequire('account_number') && !accountNumber) e.account_number = 'Account number is required.'
+      else if (accountNumber && !isValidAccountNumber(accountNumber)) e.account_number = 'Account number must be 9-34 alphanumeric characters, no spaces.'
+
       if (!nextForm.ifsc_code) {
         if (shouldRequire('ifsc_code')) e.ifsc_code = 'Invalid IFSC format.'
       } else if (!IFSC_RE.test(nextForm.ifsc_code.toUpperCase())) {
@@ -188,6 +236,45 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
       return nextTouched
     })
   }
+  const {
+    pincodeSuggestions,
+    pincodeLookupLoading,
+    cityLookupLoading,
+    applyPincodeSuggestion,
+  } = useCityPincodeSync(form.city, form.state, form.pincode, set)
+
+  const {
+    ifscLookupLoading,
+    ifscBankMismatch,
+    ifscNotFound,
+  } = useIfscVerification(form.ifsc_code, form.bank_name, form.branch_name, set)
+
+  // ── Autosave draft to localStorage (debounced) ──
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        if (hasNonEmptyValue(form)) {
+          window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(form))
+        } else {
+          window.localStorage.removeItem(DRAFT_STORAGE_KEY)
+        }
+      } catch {
+        // localStorage unavailable (private browsing, quota, etc.) — draft just won't persist.
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [form])
+
+  const discardDraft = () => {
+    clearSavedDraft()
+    setForm(EMPTY_FORM)
+    setFiles({ PAN: null, GST: null, CHEQUE: null, MSME: null })
+    setExtraDocs([])
+    setErrors({})
+    setTouched({})
+    setDraftRestored(false)
+  }
+
   const setCreatedPurchaseOrgs = (value) => {
     const selectedValues = Array.isArray(value) ? value : []
     const firstSelectedValue = selectedValues[0] || ''
@@ -344,6 +431,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
 
       const label = form.onboarding_type === 'VENDOR' ? 'Vendor' : 'Customer'
       toast.success('Draft created', `${label} ${onboarding.onboarding_code} is ready for verification before approval.`)
+      clearSavedDraft()
       onCreated()
     } catch (err) {
       const errData = err.response?.data
@@ -376,6 +464,13 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
+
+        {draftRestored && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: 'var(--info-bg, #EEF2FF)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', marginBottom: '1rem', fontSize: 13 }}>
+            <span>📝 Restored your unfinished draft from earlier. Please re-attach any documents — file uploads can't be saved automatically.</span>
+            <button type="button" className="btn btn-secondary" style={{ flexShrink: 0 }} onClick={discardDraft}>Discard &amp; start fresh</button>
+          </div>
+        )}
 
         {/* ── Type Selector ── */}
         <div className="card manual-card manual-type-card" style={{ marginBottom: '1rem' }}>
@@ -430,7 +525,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
             </div>
             <div className="field span-2">
               <label>Phone Number(s) <span className="req">*</span></label>
-              <MultiEntryField type="tel" values={form.phones} onChange={(v) => set('phones', v)} placeholder="+91 98765 43210" tag="Phone" />
+              <MultiEntryField type="tel" values={form.phones} onChange={(v) => set('phones', v)} placeholder="9876543210" tag="Phone" />
               {errors.phones && <span className="field-error">{errors.phones}</span>}
             </div>
 
@@ -450,6 +545,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
               <label>City <span className="req">*</span></label>
               <input type="text" value={form.city} onChange={(e) => set('city', e.target.value.replace(/[^a-zA-Z\s]/g, ''))} placeholder="City" className={errors.city ? 'error' : ''} />
               {errors.city && <span className="field-error">{errors.city}</span>}
+              {pincodeLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up PIN code…</span>}
             </div>
             <div className="field">
               <label>State <span className="req">*</span></label>
@@ -465,6 +561,22 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                 onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="6-digit PIN" className={errors.pincode ? 'error' : ''} />
               {errors.pincode && <span className="field-error">{errors.pincode}</span>}
+              {cityLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up city…</span>}
+              {pincodeSuggestions.length > 0 && (
+                <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', padding: '6px 10px' }}>Multiple PIN codes found for this city — pick one:</div>
+                  {pincodeSuggestions.map((match) => (
+                    <button
+                      type="button"
+                      key={`${match.pincode}-${match.city}`}
+                      onClick={() => applyPincodeSuggestion(match)}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13 }}
+                    >
+                      {match.pincode} — {match.city}, {match.district}, {match.state}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="field">
               <label>Country</label>
@@ -584,8 +696,8 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
             <div className="field">
               <label>Account Number <span className="req">*</span></label>
               <input type="text" value={form.account_number}
-                onChange={(e) => set('account_number', e.target.value.replace(/\D/g, ''))}
-                placeholder="Account number" style={{ fontFamily: 'var(--mono)' }} className={errors.account_number ? 'error' : ''} />
+                onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
+                placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} className={errors.account_number ? 'error' : ''} />
               {errors.account_number && <span className="field-error">{errors.account_number}</span>}
             </div>
             <div className="field">
@@ -597,6 +709,11 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                 className={errors.ifsc_code ? 'error' : ''} />
               <span className="hint">Format: 4 letters + 0 + 6 alphanumeric</span>
               {errors.ifsc_code && <span className="field-error">{errors.ifsc_code}</span>}
+              {ifscLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Verifying IFSC…</span>}
+              {ifscNotFound && <span className="field-error">IFSC code not found in bank registry.</span>}
+              {ifscBankMismatch && (
+                <span className="field-error">Selected bank doesn't match this IFSC's bank ({ifscBankMismatch}).</span>
+              )}
             </div>
           </div>
         </div>

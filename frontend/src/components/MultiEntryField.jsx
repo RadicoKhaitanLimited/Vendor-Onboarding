@@ -2,6 +2,12 @@ export default function MultiEntryField({ values, onChange, type = 'text', place
   const add = () => onChange([...values, ''])
   const remove = (i) => onChange(values.filter((_, idx) => idx !== i))
   const update = (i, v) => onChange(values.map((x, idx) => (idx === i ? v : x)))
+  const isPhone = type === 'tel'
+
+  const handleChange = (i, rawValue) => {
+    const nextValue = isPhone ? rawValue.replace(/\D/g, '').slice(0, 10) : rawValue
+    update(i, nextValue)
+  }
 
   return (
     <div className="multi-entry-list">
@@ -11,9 +17,10 @@ export default function MultiEntryField({ values, onChange, type = 'text', place
           <input
             type={type}
             value={v}
-            onChange={(e) => update(i, e.target.value)}
+            onChange={(e) => handleChange(i, e.target.value)}
             placeholder={placeholder}
             disabled={disabled}
+            maxLength={isPhone ? 10 : undefined}
           />
           {values.length > 1 && !disabled && (
             <button type="button" className="btn-remove-entry" onClick={() => remove(i)} title="Remove">✕</button>

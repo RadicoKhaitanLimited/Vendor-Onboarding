@@ -20,6 +20,8 @@ import { MSME_REGISTERED_OPTIONS, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
 import { isPanNameEditable } from '../utils/panName'
+import { useCityPincodeSync } from '../utils/useCityPincodeSync'
+import { useIfscVerification } from '../utils/useIfscVerification'
 
 
 
@@ -39,9 +41,16 @@ const BANKS = [
   'Indian Bank','Central Bank of India','Bank of India','Other',
 ]
 
-const PAN_RE  = /^[A-Z]{5}[0-9]{4}[A-Z]$/
-const GST_RE  = /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/
-const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/
+const PAN_RE            = /^[A-Z]{5}[0-9]{4}[A-Z]$/
+const GST_RE            = /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/
+const IFSC_RE           = /^[A-Z]{4}0[A-Z0-9]{6}$/
+const EMAIL_RE          = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+const PHONE_RE          = /^(?:\+91|91|0)?[6-9]\d{9}$/
+const ACCOUNT_NUMBER_RE = /^[A-Za-z0-9]{9,34}$/
+
+const isValidEmail = (value) => EMAIL_RE.test(value.trim())
+const isValidPhone = (value) => PHONE_RE.test(value.trim().replace(/[\s-]/g, ''))
+const isValidAccountNumber = (value) => ACCOUNT_NUMBER_RE.test(value.trim())
 
 const PAN_APPROVAL_STATUS = {
   PENDING: 'pending',
@@ -239,6 +248,28 @@ export default function EditOnboardingModal({
     return nextErrors
   }
 
+  const validateLiveContactFields = (nextForm) => {
+    const nextErrors = {}
+    const nonEmptyEmails = nextForm.emails.filter(Boolean)
+    if (!nonEmptyEmails.length) nextErrors.emails = 'At least one email is required.'
+    else if (nonEmptyEmails.some((email) => !isValidEmail(email))) nextErrors.emails = 'Enter valid email address(es).'
+
+    const nonEmptyPhones = nextForm.phones.filter(Boolean)
+    if (!nonEmptyPhones.length) nextErrors.phones = 'At least one phone number is required.'
+    else if (nonEmptyPhones.some((phone) => !isValidPhone(phone))) nextErrors.phones = 'Enter valid 10-digit phone number(s).'
+
+    return nextErrors
+  }
+
+  const validateLiveAccountFields = (nextForm) => {
+    const nextErrors = {}
+    const accountNumber = nextForm.account_number.trim()
+    if (!accountNumber) nextErrors.account_number = 'Account number is required.'
+    else if (!isValidAccountNumber(accountNumber)) nextErrors.account_number = 'Account number must be 9-34 alphanumeric characters, no spaces.'
+
+    return nextErrors
+  }
+
   const set = (key, value) => {
     setForm((current) => {
       const next = { ...current, [key]: value }
@@ -257,9 +288,38 @@ export default function EditOnboardingModal({
           return { ...cleaned, ...liveErrors }
         })
       }
+      if (['emails', 'phones'].includes(key)) {
+        const liveErrors = validateLiveContactFields(next)
+        setErrors((currentErrors) => {
+          const cleaned = { ...currentErrors }
+          delete cleaned.emails
+          delete cleaned.phones
+          return { ...cleaned, ...liveErrors }
+        })
+      }
+      if (key === 'account_number') {
+        const liveErrors = validateLiveAccountFields(next)
+        setErrors((currentErrors) => {
+          const cleaned = { ...currentErrors }
+          delete cleaned.account_number
+          return { ...cleaned, ...liveErrors }
+        })
+      }
       return next
     })
   }
+  const {
+    pincodeSuggestions,
+    pincodeLookupLoading,
+    cityLookupLoading,
+    applyPincodeSuggestion,
+  } = useCityPincodeSync(form.city, form.state, form.pincode, set)
+
+  const {
+    ifscLookupLoading,
+    ifscBankMismatch,
+    ifscNotFound,
+  } = useIfscVerification(form.ifsc_code, form.bank_name, form.branch_name, set)
   const setCreatedPurchaseOrgs = (value) => {
     const selectedValues = Array.isArray(value) ? value : []
     const firstSelectedValue = selectedValues[0] || ''
@@ -315,8 +375,13 @@ export default function EditOnboardingModal({
   const validate = () => {
     const e = {}
     if (!form.company_name.trim()) e.company_name = 'Company name is required.'
-    if (!form.emails.filter(Boolean).length) e.emails = 'At least one email is required.'
-    if (!form.phones.filter(Boolean).length) e.phones = 'At least one phone number is required.'
+    const nonEmptyEmails = form.emails.filter(Boolean)
+    if (!nonEmptyEmails.length) e.emails = 'At least one email is required.'
+    else if (nonEmptyEmails.some((email) => !isValidEmail(email))) e.emails = 'Enter valid email address(es).'
+
+    const nonEmptyPhones = form.phones.filter(Boolean)
+    if (!nonEmptyPhones.length) e.phones = 'At least one phone number is required.'
+    else if (nonEmptyPhones.some((phone) => !isValidPhone(phone))) e.phones = 'Enter valid 10-digit phone number(s).'
     if (!form.city.trim()) e.city = 'City is required.'
     if (!form.state) e.state = 'State is required.'
     if (!form.street1.trim()) e.street1 = 'Street address is required.'
@@ -338,7 +403,10 @@ export default function EditOnboardingModal({
       if (!form.account_holder_name.trim()) e.account_holder_name = 'Account holder name is required.'
       if (!form.bank_name) e.bank_name = 'Bank name is required.'
       if (!form.branch_name.trim()) e.branch_name = 'Branch name is required.'
-      if (!form.account_number.trim()) e.account_number = 'Account number is required.'
+      const accountNumber = form.account_number.trim()
+      if (!accountNumber) e.account_number = 'Account number is required.'
+      else if (!isValidAccountNumber(accountNumber)) e.account_number = 'Account number must be 9-34 alphanumeric characters, no spaces.'
+
       if (!form.ifsc_code || !IFSC_RE.test(form.ifsc_code.toUpperCase()))
         e.ifsc_code = 'Invalid IFSC format. Expected: ABCD0123456'
       if (form.msme_applicable === null) e.msme_applicable = 'Please select MSME status.'
@@ -789,9 +857,10 @@ export default function EditOnboardingModal({
                 type="tel"
                 values={form.phones}
                 onChange={(v) => set('phones', v)}
-                placeholder="+91 98765 43210"
+                placeholder="9876543210"
                 tag="Phone"
               />
+              {errors.phones && <span className="field-error">{errors.phones}</span>}
         </div>
         </div></div>
 
@@ -806,6 +875,7 @@ export default function EditOnboardingModal({
             <div className="field">
               <label>City</label>
               <input type="text" value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="City" />
+              {pincodeLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up PIN code…</span>}
             </div>
             <div className="field">
               <label>State</label>
@@ -821,6 +891,22 @@ export default function EditOnboardingModal({
                 onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="6-digit PIN" className={errors.pincode ? 'error' : ''} />
               {errors.pincode && <span className="field-error">{errors.pincode}</span>}
+              {cityLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up city…</span>}
+              {pincodeSuggestions.length > 0 && (
+                <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', padding: '6px 10px' }}>Multiple PIN codes found for this city — pick one:</div>
+                  {pincodeSuggestions.map((match) => (
+                    <button
+                      type="button"
+                      key={`${match.pincode}-${match.city}`}
+                      onClick={() => applyPincodeSuggestion(match)}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13 }}
+                    >
+                      {match.pincode} — {match.city}, {match.district}, {match.state}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="field">
               <label>Country</label>
@@ -1139,8 +1225,8 @@ export default function EditOnboardingModal({
             <div className="field">
               <label>Account Number <span className="req">*</span></label>
               <input type="text" value={form.account_number}
-                onChange={(e) => set('account_number', e.target.value.replace(/\D/g, ''))}
-                placeholder="Account number" style={{ fontFamily: 'var(--mono)' }} className={errors.account_number ? 'error' : ''} />
+                onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
+                placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} className={errors.account_number ? 'error' : ''} />
               {errors.account_number && <span className="field-error">{errors.account_number}</span>}
             </div>
             <div className="field">
@@ -1152,6 +1238,11 @@ export default function EditOnboardingModal({
                 className={errors.ifsc_code ? 'error' : ''} />
               <span className="hint">Format: 4 letters + 0 + 6 alphanumeric</span>
               {errors.ifsc_code && <span className="field-error">{errors.ifsc_code}</span>}
+              {ifscLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Verifying IFSC…</span>}
+              {ifscNotFound && <span className="field-error">IFSC code not found in bank registry.</span>}
+              {ifscBankMismatch && (
+                <span className="field-error">Selected bank doesn't match this IFSC's bank ({ifscBankMismatch}).</span>
+              )}
             </div>
           </div>
         </div>

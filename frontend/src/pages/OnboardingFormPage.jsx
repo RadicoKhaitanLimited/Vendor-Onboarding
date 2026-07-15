@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { publicApi } from '../api/axios'
 import MultiEntryField from '../components/MultiEntryField'
@@ -6,6 +6,8 @@ import FileUploadField from '../components/FileUploadField'
 import { MSME_REGISTERED_OPTIONS, formatMsmeOption, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { isPanNameEditable } from '../utils/panName'
+import { useCityPincodeSync } from '../utils/useCityPincodeSync'
+import { useIfscVerification } from '../utils/useIfscVerification'
 
 const STEPS = [
   { id: 1, label: 'Basic Info' },
@@ -33,6 +35,13 @@ const BANKS = [
 const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/
 const GST_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/
 const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+const PHONE_RE = /^(?:\+91|91|0)?[6-9]\d{9}$/
+const ACCOUNT_NUMBER_RE = /^[A-Za-z0-9]{9,34}$/
+
+const isValidEmail = (value) => EMAIL_RE.test(value.trim())
+const isValidPhone = (value) => PHONE_RE.test(value.trim().replace(/[\s-]/g, ''))
+const isValidAccountNumber = (value) => ACCOUNT_NUMBER_RE.test(value.trim())
 
 function validatePanGst(pan, gst) {
   if (!pan || !gst) return null
@@ -61,6 +70,17 @@ function getEntityType(tokenPayload, search = '') {
   return 'Business Partner'
 }
 
+const stepStorageKey = (token) => `onboarding-form-step:${token}`
+
+function readSavedStep(token) {
+  try {
+    const saved = Number(window.localStorage.getItem(stepStorageKey(token)))
+    return saved >= 1 && saved <= STEPS.length ? saved : 1
+  } catch {
+    return 1
+  }
+}
+
 export default function OnboardingFormPage() {
   const { token } = useParams()
   const location = useLocation()
@@ -68,7 +88,7 @@ export default function OnboardingFormPage() {
   const [tokenError, setTokenError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(() => readSavedStep(token))
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
@@ -99,6 +119,7 @@ export default function OnboardingFormPage() {
     bank_name: '',
     branch_name: '',
     account_number: '',
+    confirm_account_number: '',
     ifsc_code: '',
     msme_applicable: null,
     msme_category: '',
@@ -138,6 +159,7 @@ export default function OnboardingFormPage() {
             bank_name: ob.bank_name || '',
             branch_name: ob.branch_name || '',
             account_number: ob.account_number || '',
+            confirm_account_number: ob.account_number || '',
             ifsc_code: ob.ifsc_code || '',
             msme_applicable: ob.msme_applicable != null ? ob.msme_applicable : null,
             msme_category: normalizeMsmeCode(ob.msme_category || ob.msme_status || ''),
@@ -151,6 +173,15 @@ export default function OnboardingFormPage() {
       .finally(() => setLoading(false))
   }, [token])
 
+  useEffect(() => {
+    if (submitted) return
+    try {
+      window.localStorage.setItem(stepStorageKey(token), String(step))
+    } catch {
+      // localStorage unavailable (private browsing, quota, etc.) — resuming step just won't persist.
+    }
+  }, [token, step, submitted])
+
   const entityType = getEntityType(tokenData, location.search)
   const isCustomer = entityType === 'Customer'
   const registrationTitle = `${entityType} Registration`
@@ -162,8 +193,13 @@ export default function OnboardingFormPage() {
     const shouldRequire = (field) => showAll || nextTouched[field]
 
     if (shouldRequire('company_name') && !nextForm.company_name.trim()) e.company_name = 'Company name is required.'
-    if (shouldRequire('emails') && !nextForm.emails.filter(Boolean).length) e.emails = 'At least one email is required.'
-    if (shouldRequire('phones') && !nextForm.phones.filter(Boolean).length) e.phones = 'At least one phone number is required.'
+    const nonEmptyEmails = nextForm.emails.filter(Boolean)
+    if (shouldRequire('emails') && !nonEmptyEmails.length) e.emails = 'At least one email is required.'
+    else if (nonEmptyEmails.some((email) => !isValidEmail(email))) e.emails = 'Enter valid email address(es).'
+
+    const nonEmptyPhones = nextForm.phones.filter(Boolean)
+    if (shouldRequire('phones') && !nonEmptyPhones.length) e.phones = 'At least one phone number is required.'
+    else if (nonEmptyPhones.some((phone) => !isValidPhone(phone))) e.phones = 'Enter valid 10-digit phone number(s).'
     if (shouldRequire('city') && !nextForm.city.trim()) e.city = 'City is required.'
     if (shouldRequire('state') && !nextForm.state) e.state = 'State is required.'
     if (shouldRequire('pincode') && (!nextForm.pincode || nextForm.pincode.length !== 6)) e.pincode = '6-digit PIN code is required.'
@@ -199,7 +235,13 @@ export default function OnboardingFormPage() {
       if (shouldRequire('account_holder_name') && !nextForm.account_holder_name.trim()) e.account_holder_name = 'Account holder name is required.'
       if (shouldRequire('bank_name') && !nextForm.bank_name) e.bank_name = 'Bank name is required.'
       if (shouldRequire('branch_name') && !nextForm.branch_name.trim()) e.branch_name = 'Branch name is required.'
-      if (shouldRequire('account_number') && !nextForm.account_number.trim()) e.account_number = 'Account number is required.'
+      const accountNumber = nextForm.account_number.trim()
+      if (shouldRequire('account_number') && !accountNumber) e.account_number = 'Account number is required.'
+      else if (accountNumber && !isValidAccountNumber(accountNumber)) e.account_number = 'Account number must be 9-34 alphanumeric characters, no spaces.'
+
+      if (shouldRequire('confirm_account_number') && !nextForm.confirm_account_number.trim()) e.confirm_account_number = 'Please confirm the account number.'
+      else if (nextForm.confirm_account_number.trim() && nextForm.confirm_account_number.trim() !== accountNumber) e.confirm_account_number = 'Account numbers do not match.'
+
       if (!nextForm.ifsc_code) {
         if (shouldRequire('ifsc_code')) e.ifsc_code = 'Invalid IFSC format.'
       } else if (!IFSC_RE.test(nextForm.ifsc_code.toUpperCase())) {
@@ -242,6 +284,7 @@ export default function OnboardingFormPage() {
       bank_name: true,
       branch_name: true,
       account_number: true,
+      confirm_account_number: true,
       ifsc_code: true,
       msme_applicable: true,
       msme_category: true,
@@ -272,6 +315,19 @@ export default function OnboardingFormPage() {
       return nextTouched
     })
   }
+
+  const {
+    pincodeSuggestions,
+    pincodeLookupLoading,
+    cityLookupLoading,
+    applyPincodeSuggestion,
+  } = useCityPincodeSync(form.city, form.state, form.pincode, set)
+
+  const {
+    ifscLookupLoading,
+    ifscBankMismatch,
+    ifscNotFound,
+  } = useIfscVerification(form.ifsc_code, form.bank_name, form.branch_name, set)
 
   const updateFile = (docType, file) => {
     const errorKeyByDocType = {
@@ -329,6 +385,19 @@ export default function OnboardingFormPage() {
     udyam_number: !isCustomer && form.msme_applicable ? form.udyam_number : '',
   })
 
+  // ── Autosave draft on change (debounced) ──
+  const autosaveSkipRef = useRef(true)
+  useEffect(() => {
+    if (loading || submitted || isApproved) return
+    if (autosaveSkipRef.current) {
+      autosaveSkipRef.current = false
+      return
+    }
+    const timer = setTimeout(() => { saveDraft() }, 1500)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, loading, submitted, isApproved])
+
   // ── Step 1 validation ──
   const validateStep1 = () => {
     const e = pickErrors(validateAll(), ['company_name', 'emails', 'phones', 'city', 'state', 'pincode', 'street1'])
@@ -338,7 +407,7 @@ export default function OnboardingFormPage() {
 
   // ── Step 2 validation ──
   const validateStep2 = () => {
-    const e = pickErrors(validateAll(), ['pan_number', 'pan_name', 'gst_applicable', 'gst_number', 'account_holder_name', 'bank_name', 'branch_name', 'account_number', 'ifsc_code'])
+    const e = pickErrors(validateAll(), ['pan_number', 'pan_name', 'gst_applicable', 'gst_number', 'account_holder_name', 'bank_name', 'branch_name', 'account_number', 'confirm_account_number', 'ifsc_code'])
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -399,6 +468,11 @@ export default function OnboardingFormPage() {
       ])
       await publicApi.post(`/onboarding/form/${token}/submit/`, buildPayload())
       setSubmitted(true)
+      try {
+        window.localStorage.removeItem(stepStorageKey(token))
+      } catch {
+        // Best-effort cleanup only.
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
       const data = err.response?.data
@@ -503,7 +577,7 @@ export default function OnboardingFormPage() {
                 </div>
                 <div className="field span-2">
                   <label>Mobile Number(s) <span className="req">*</span></label>
-                  <MultiEntryField type="tel" values={form.phones} onChange={(v) => set('phones', v)} placeholder="+91 98765 43210" tag="Phone" disabled={isReadOnly} />
+                  <MultiEntryField type="tel" values={form.phones} onChange={(v) => set('phones', v)} placeholder="9876543210" tag="Phone" disabled={isReadOnly} />
                   {errors.phones && <span className="field-error">{errors.phones}</span>}
                 </div>
 
@@ -522,6 +596,7 @@ export default function OnboardingFormPage() {
                   <label>City <span className="req">*</span></label>
                   <input type="text" value={form.city} onChange={(e) => set('city', e.target.value.replace(/[^a-zA-Z\s]/g, ''))} placeholder="City" disabled={isReadOnly} className={errors.city ? 'error' : ''} />
                   {errors.city && <span className="field-error">{errors.city}</span>}
+                  {pincodeLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up PIN code…</span>}
                 </div>
                 <div className="field">
                   <label>State <span className="req">*</span></label>
@@ -535,6 +610,22 @@ export default function OnboardingFormPage() {
                   <label>PIN Code <span className="req">*</span></label>
                   <input type="text" value={form.pincode} onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit PIN" disabled={isReadOnly} className={errors.pincode ? 'error' : ''} />
                   {errors.pincode && <span className="field-error">{errors.pincode}</span>}
+                  {cityLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up city…</span>}
+                  {pincodeSuggestions.length > 0 && (
+                    <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', padding: '6px 10px' }}>Multiple PIN codes found for this city — pick one:</div>
+                      {pincodeSuggestions.map((match) => (
+                        <button
+                          type="button"
+                          key={`${match.pincode}-${match.city}`}
+                          onClick={() => applyPincodeSuggestion(match)}
+                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13 }}
+                        >
+                          {match.pincode} — {match.city}, {match.district}, {match.state}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="field">
                   <label>Country</label>
@@ -686,14 +777,24 @@ export default function OnboardingFormPage() {
                 </div>
                 <div className="field">
                   <label>Account Number <span className="req">*</span></label>
-                  <input type="text" value={form.account_number} onChange={(e) => set('account_number', e.target.value.replace(/\D/g, ''))} placeholder="Account number" style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.account_number ? 'error' : ''} />
+                  <input type="text" value={form.account_number} onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))} placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.account_number ? 'error' : ''} />
                   {errors.account_number && <span className="field-error">{errors.account_number}</span>}
+                </div>
+                <div className="field">
+                  <label>Confirm Account Number <span className="req">*</span></label>
+                  <input type="text" value={form.confirm_account_number} onChange={(e) => set('confirm_account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))} onPaste={(e) => e.preventDefault()} placeholder="Re-enter account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.confirm_account_number ? 'error' : ''} />
+                  {errors.confirm_account_number && <span className="field-error">{errors.confirm_account_number}</span>}
                 </div>
                 <div className="field">
                   <label>IFSC Code <span className="req">*</span></label>
                   <input type="text" value={form.ifsc_code} onChange={(e) => set('ifsc_code', e.target.value.toUpperCase().slice(0, 11))} placeholder="SBIN0001234" maxLength={11} style={{ textTransform: 'uppercase', fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.ifsc_code ? 'error' : ''} />
                   <span className="hint">Format: 4 letters + 0 + 6 alphanumeric</span>
                   {errors.ifsc_code && <span className="field-error">{errors.ifsc_code}</span>}
+                  {ifscLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Verifying IFSC…</span>}
+                  {ifscNotFound && <span className="field-error">IFSC code not found in bank registry.</span>}
+                  {ifscBankMismatch && (
+                    <span className="field-error">Selected bank doesn't match this IFSC's bank ({ifscBankMismatch}).</span>
+                  )}
                 </div>
               </div>
             </div>

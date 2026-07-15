@@ -1287,7 +1287,9 @@ class SubmitOnboardingView(APIView):
         if onboarding.status == 'APPROVED':
             return Response({'detail': 'Approved onboarding cannot be edited.'}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = OnboardingDetailSerializer(onboarding, data=request.data, partial=True)
+        serializer = OnboardingDetailSerializer(
+            onboarding, data=request.data, partial=True, context={'draft': True},
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()

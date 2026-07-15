@@ -5,6 +5,10 @@ from .models import (
     VENDOR_REFERENCE_RANGES,
 )
 
+EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+PHONE_RE = re.compile(r'^(?:\+91|91|0)?[6-9]\d{9}$')
+ACCOUNT_NUMBER_RE = re.compile(r'^[A-Za-z0-9]{9,34}$')
+
 GST_STATE_CODES = {
     'Jammu And Kashmir': '01',
     'Jammu & Kashmir': '01',
@@ -141,19 +145,28 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
         return OnboardingApprovalHistorySerializer(obj.approval_history.select_related('actor').all(), many=True).data
 
     def validate_pan_number(self, value):
-        if value and not re.match(r'^[A-Z]{5}[0-9]{4}[A-Z]$', value.upper()):
+        value = (value or '').upper()
+        if value and not self.context.get('draft') and not re.match(r'^[A-Z]{5}[0-9]{4}[A-Z]$', value):
             raise serializers.ValidationError('Invalid PAN format. Expected: ABCDE1234F')
-        return value.upper() if value else value
+        return value
 
     def validate_gst_number(self, value):
-        if value and not re.match(r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$', value.upper()):
+        value = (value or '').upper()
+        if value and not self.context.get('draft') and not re.match(r'^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$', value):
             raise serializers.ValidationError('Invalid GST format. Expected 15-character GSTIN.')
-        return value.upper() if value else value
+        return value
 
     def validate_ifsc_code(self, value):
-        if value and not re.match(r'^[A-Z]{4}0[A-Z0-9]{6}$', value.upper()):
+        value = (value or '').upper()
+        if value and not self.context.get('draft') and not re.match(r'^[A-Z]{4}0[A-Z0-9]{6}$', value):
             raise serializers.ValidationError('Invalid IFSC format. Expected: ABCD0123456')
-        return value.upper() if value else value
+        return value
+
+    def validate_account_number(self, value):
+        value = re.sub(r'\s+', '', value or '')
+        if value and not self.context.get('draft') and not ACCOUNT_NUMBER_RE.match(value):
+            raise serializers.ValidationError('Account number must be 9-34 alphanumeric characters, no spaces.')
+        return value
 
     def validate_vendor_reference_range(self, value):
         if not value:
@@ -180,7 +193,7 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
         elif 'pan_name' not in data:
             data['pan_name'] = company_name
 
-        if pan and gst:
+        if pan and gst and len(gst) == 15 and not self.context.get('draft'):
             # GST digits 3-12 must match PAN
             if gst[2:12].upper() != pan.upper():
                 raise serializers.ValidationError(
@@ -217,10 +230,16 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
 
             emails = current('emails', []) or []
             phones = current('phones', []) or []
-            if not [email for email in emails if str(email or '').strip()]:
+            non_empty_emails = [str(email or '').strip() for email in emails if str(email or '').strip()]
+            non_empty_phones = [str(phone or '').strip() for phone in phones if str(phone or '').strip()]
+            if not non_empty_emails:
                 errors['emails'] = ['At least one email is required.']
-            if not [phone for phone in phones if str(phone or '').strip()]:
+            elif [email for email in non_empty_emails if not EMAIL_RE.match(email)]:
+                errors['emails'] = ['Enter valid email address(es).']
+            if not non_empty_phones:
                 errors['phones'] = ['At least one phone number is required.']
+            elif [phone for phone in non_empty_phones if not PHONE_RE.match(phone)]:
+                errors['phones'] = ['Enter valid 10-digit phone number(s).']
 
             pincode = str(current('pincode', '') or '').strip()
             if len(pincode) != 6:

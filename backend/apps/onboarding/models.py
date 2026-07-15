@@ -118,7 +118,7 @@ class Onboarding(models.Model):
     account_holder_name = models.CharField(max_length=255, blank=True)
     bank_name = models.CharField(max_length=100, blank=True)
     branch_name = models.CharField(max_length=100, blank=True)
-    account_number = models.CharField(max_length=30, blank=True)
+    account_number = models.CharField(max_length=34, blank=True)
     ifsc_code = models.CharField(max_length=11, blank=True)
 
     # MSME
