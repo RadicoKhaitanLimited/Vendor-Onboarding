@@ -231,6 +231,10 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         const nextForm = { ...prevForm, [key]: value }
         if ((key === 'company_name' || key === 'pan_number') && !isPanNameEditable(nextForm.pan_number)) {
           nextForm.pan_name = nextForm.company_name
+          nextForm.account_holder_name = nextForm.company_name
+        } else if (key === 'pan_number' && isPanNameEditable(nextForm.pan_number)) {
+          nextForm.pan_name = ''
+          nextForm.account_holder_name = nextForm.company_name
         }
         setErrors(validateForm(nextForm, files, nextTouched))
         return nextForm
@@ -243,6 +247,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
     pincodeLookupLoading,
     cityLookupLoading,
     applyPincodeSuggestion,
+    dismissPincodeSuggestions,
   } = useCityPincodeSync(form.city, form.state, form.pincode, set)
 
   const {
@@ -563,6 +568,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
               <label>PIN Code <span className="req">*</span></label>
               <input type="text" value={form.pincode}
                 onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onKeyDown={(e) => { if (e.key === 'Enter') dismissPincodeSuggestions() }}
                 placeholder="6-digit PIN" className={errors.pincode ? 'error' : ''} />
               {errors.pincode && <span className="field-error">{errors.pincode}</span>}
               {cityLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up city…</span>}
@@ -681,7 +687,7 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
           <div className="grid-2">
             <div className="field span-2">
               <label>Account Holder Name <span className="req">*</span></label>
-              <input type="text" value={form.account_holder_name} onChange={(e) => set('account_holder_name', e.target.value)} placeholder="As per bank records" className={errors.account_holder_name ? 'error' : ''} />
+              <input type="text" value={form.account_holder_name} onChange={(e) => set('account_holder_name', e.target.value)} placeholder="As per bank records" disabled={!isPanNameEditable(form.pan_number)} className={errors.account_holder_name ? 'error' : ''} />
               {errors.account_holder_name && <span className="field-error">{errors.account_holder_name}</span>}
             </div>
             <div className="field">

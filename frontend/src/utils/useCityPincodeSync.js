@@ -15,6 +15,22 @@ export function useCityPincodeSync(city, state, pincode, set) {
   const pincodeRequestId = useRef(0)
   const cityRequestId = useRef(0)
 
+  // A record can arrive with both city and pincode already filled in — either
+  // present at mount (editing an existing vendor, or a restored draft) or
+  // filled together moments later once an async fetch resolves (e.g. the
+  // public onboarding form). Either way, trust that saved pairing instead of
+  // re-querying and second-guessing it with a suggestion list.
+  //
+  // We track this as the *last pairing we considered trusted* rather than a
+  // one-shot "have we run yet" flag, because React 18 StrictMode (dev only)
+  // invokes effects twice per commit — a flag that flips itself off after
+  // the first invocation would already read false by the second, defeating
+  // the skip. Comparing against the actual value pairing is idempotent
+  // across repeated invocations with the same city/pincode.
+  const trustedPairing = useRef(
+    city.trim() !== '' && pincode.trim() !== '' ? `${city.trim()}|${pincode.trim()}` : null
+  )
+
   const setAuto = (key, value) => {
     autoFilled.current[key] = value
     set(key, value)
@@ -30,6 +46,12 @@ export function useCityPincodeSync(city, state, pincode, set) {
   // City -> Pincode (+ State)
   useEffect(() => {
     const trimmedCity = city.trim()
+    const trimmedPincode = pincode.trim()
+
+    if (trimmedCity && trimmedPincode && trustedPairing.current === `${trimmedCity}|${trimmedPincode}`) {
+      return
+    }
+
     setPincodeSuggestions([])
 
     if (!trimmedCity) {
@@ -76,7 +98,16 @@ export function useCityPincodeSync(city, state, pincode, set) {
 
   // Pincode -> City (+ State)
   useEffect(() => {
+    const trimmedCity = city.trim()
     const trimmedPincode = pincode.trim()
+
+    if (trimmedCity && trimmedPincode && trustedPairing.current === `${trimmedCity}|${trimmedPincode}`) {
+      return
+    }
+
+    // Any change to the pincode field — typed, pasted, or picked from the
+    // suggestion list — means the suggestion list is no longer relevant.
+    setPincodeSuggestions([])
 
     if (!trimmedPincode) {
       // Pincode was cleared — clear whatever this sync had derived from it.
@@ -124,5 +155,9 @@ export function useCityPincodeSync(city, state, pincode, set) {
     setPincodeSuggestions([])
   }
 
-  return { pincodeSuggestions, pincodeLookupLoading, cityLookupLoading, applyPincodeSuggestion }
+  // Lets the pincode field dismiss the suggestion list on Enter without
+  // waiting for the debounced lookup effect to clear it.
+  const dismissPincodeSuggestions = () => setPincodeSuggestions([])
+
+  return { pincodeSuggestions, pincodeLookupLoading, cityLookupLoading, applyPincodeSuggestion, dismissPincodeSuggestions }
 }

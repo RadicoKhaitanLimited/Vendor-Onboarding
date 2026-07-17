@@ -302,6 +302,10 @@ export default function OnboardingFormPage() {
         const nextForm = { ...prevForm, [key]: value }
         if ((key === 'company_name' || key === 'pan_number') && !isPanNameEditable(nextForm.pan_number)) {
           nextForm.pan_name = nextForm.company_name
+          nextForm.account_holder_name = nextForm.company_name
+        } else if (key === 'pan_number' && isPanNameEditable(nextForm.pan_number)) {
+          nextForm.pan_name = ''
+          nextForm.account_holder_name = nextForm.company_name
         }
         setErrors(validateForm(nextForm, files, nextTouched))
         return nextForm
@@ -315,6 +319,7 @@ export default function OnboardingFormPage() {
     pincodeLookupLoading,
     cityLookupLoading,
     applyPincodeSuggestion,
+    dismissPincodeSuggestions,
   } = useCityPincodeSync(form.city, form.state, form.pincode, set)
 
   const {
@@ -611,7 +616,7 @@ export default function OnboardingFormPage() {
                 </div>
                 <div className="field">
                   <label htmlFor="f-pincode">PIN Code <span className="req">*</span></label>
-                  <input id="f-pincode" type="text" value={form.pincode} onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit PIN" disabled={isReadOnly} className={errors.pincode ? 'error' : ''} />
+                  <input id="f-pincode" type="text" value={form.pincode} onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={(e) => { if (e.key === 'Enter') dismissPincodeSuggestions() }} placeholder="6-digit PIN" disabled={isReadOnly} className={errors.pincode ? 'error' : ''} />
                   {errors.pincode && <span className="field-error">{errors.pincode}</span>}
                   {cityLookupLoading && (
                     <span className="field-hint-row"><span className="spinner-mini" aria-hidden="true" />Looking up city…</span>
@@ -768,7 +773,7 @@ export default function OnboardingFormPage() {
               <div className="grid-2">
                 <div className="field span-2">
                   <label htmlFor="f-account-holder">Account Holder Name <span className="req">*</span></label>
-                  <input id="f-account-holder" type="text" value={form.account_holder_name} onChange={(e) => set('account_holder_name', e.target.value)} placeholder="As per bank records" disabled={isReadOnly} className={errors.account_holder_name ? 'error' : ''} />
+                  <input id="f-account-holder" type="text" value={form.account_holder_name} onChange={(e) => set('account_holder_name', e.target.value)} placeholder="As per bank records" disabled={isReadOnly || !isPanNameEditable(form.pan_number)} className={errors.account_holder_name ? 'error' : ''} />
                   {errors.account_holder_name && <span className="field-error">{errors.account_holder_name}</span>}
                 </div>
                 <div className="field">

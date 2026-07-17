@@ -261,9 +261,9 @@ header::after {
   border-radius: 18px;
   overflow: hidden;
   isolation: isolate;
-  background: linear-gradient(130deg, rgba(255,255,255,.78), rgba(248,241,225,.53));
-  box-shadow: 0 20px 48px rgba(2,8,20,.28), 0 1px 0 rgba(255,255,255,.7) inset;
-  backdrop-filter: blur(13px) saturate(125%);
+  background: linear-gradient(130deg, rgba(255,255,255,.4), rgba(248,241,225,.22));
+  box-shadow: 0 20px 48px rgba(2,8,20,.32), 0 1px 0 rgba(255,255,255,.5) inset;
+  backdrop-filter: blur(6px) saturate(125%);
   margin-left: auto;
   margin-right: auto;
 }
@@ -293,6 +293,7 @@ header::after {
   line-height: 1.05;
   color: #0B1220;
   letter-spacing: -.8px;
+  text-shadow: 0 1px 0 rgba(255,255,255,.6), 0 2px 18px rgba(255,255,255,.5);
 }
 .dashboard-page-header p {
   max-width: 720px;
@@ -300,7 +301,7 @@ header::after {
   color: #1D2A3D;
   font-size: 15px;
   font-weight: 650;
-  text-shadow: 0 1px 0 rgba(255,255,255,.45);
+  text-shadow: 0 1px 0 rgba(255,255,255,.55), 0 2px 14px rgba(255,255,255,.4);
 }
 .dashboard-page-header h1::after {
   content: '';
