@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import api from '../api/axios'
+import { isValidEmail } from '../utils/email'
 
 const ROLE_LABELS = {
   ADMIN: 'Administrator',
@@ -75,6 +76,10 @@ export default function ProfilePage() {
 
   const save = async (event) => {
     event.preventDefault()
+    if (!isValidEmail(form.email)) {
+      toast.error('Invalid email', 'Enter a valid email address.')
+      return
+    }
     setSaving(true)
     try {
       const { data } = await api.patch(userId ? `/auth/users/${userId}/` : '/auth/profile/', form)

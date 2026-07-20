@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
+import { isValidEmail } from '../utils/email'
 
 const ROLE_LABELS = { BOSS: 'APPROVER / MANAGER', ADMIN: 'ADMIN', EMPLOYEE: 'EMPLOYEE' }
 
@@ -60,6 +61,10 @@ export default function ManageUsersModal({ onClose }) {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
+    if (!isValidEmail(form.email)) {
+      setError('Enter a valid email address.')
+      return
+    }
     setSubmitting(true)
     try {
       await api.post('/auth/users/', form)

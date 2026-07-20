@@ -19,7 +19,9 @@ import CustomerSearchTermSelect from './CustomerSearchTermSelect'
 import SalesReferenceOrgSelect from './SalesReferenceOrgSelect'
 import { MSME_REGISTERED_OPTIONS, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
+import { isTdsMandatoryForGroupCode } from '../constants/vendorReferenceGroups'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
+import { isValidEmail } from '../utils/email'
 import { isPanNameEditable } from '../utils/panName'
 import { useCityPincodeSync } from '../utils/useCityPincodeSync'
 import { useIfscVerification } from '../utils/useIfscVerification'
@@ -45,11 +47,9 @@ const BANKS = [
 const PAN_RE            = /^[A-Z]{5}[0-9]{4}[A-Z]$/
 const GST_RE            = /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/
 const IFSC_RE           = /^[A-Z]{4}0[A-Z0-9]{6}$/
-const EMAIL_RE          = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const PHONE_RE          = /^(?:\+91|91|0)?[6-9]\d{9}$/
 const ACCOUNT_NUMBER_RE = /^[A-Za-z0-9]{9,34}$/
 
-const isValidEmail = (value) => EMAIL_RE.test(value.trim())
 const isValidPhone = (value) => PHONE_RE.test(value.trim().replace(/[\s-]/g, ''))
 const isValidAccountNumber = (value) => ACCOUNT_NUMBER_RE.test(value.trim())
 
@@ -202,6 +202,7 @@ export default function EditOnboardingModal({
     reference_vendor_code:    data.reference_vendor_code || '',
     vendor_reference_range:   data.vendor_reference_range || '',
     reference_name:           data.reference_name || '',
+    group_code:               '',
     gl_account_number:        data.gl_account_number || '',
     gl_account_description:   data.gl_account_description || '',
     reference_purchase_orgs:  data.reference_purchase_orgs || [],
@@ -393,6 +394,7 @@ export default function EditOnboardingModal({
       ...f,
       vendor_reference_range: mapping ? mapping.vendor_reference_range : '',
       reference_name: mapping ? mapping.reference_name : '',
+      group_code: mapping ? mapping.group_code : '',
       gl_account_number: mapping ? mapping.gl_account_number : '',
       gl_account_description: mapping ? mapping.gl_account_description : '',
     }))
@@ -463,6 +465,9 @@ export default function EditOnboardingModal({
       if (form.msme_applicable) {
         if (!form.msme_category) e.msme_category = 'MSME category is required.'
         if (!form.udyam_number.trim()) e.udyam_number = 'Udyam registration number is required.'
+      }
+      if (isTdsMandatoryForGroupCode(form.group_code) && !form.tds_codes) {
+        e.tds_codes = `TDS Codes is mandatory for vendor reference group "${form.group_code}".`
       }
     }
     if (form.pincode && form.pincode.length !== 6) e.pincode = 'PIN must be 6 digits.'
@@ -1275,18 +1280,6 @@ export default function EditOnboardingModal({
               {errors.bank_name && <span className="field-error">{errors.bank_name}</span>}
             </div>
             <div className="field">
-              <label>Branch Name <span className="req">*</span></label>
-              <input type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" className={errors.branch_name ? 'error' : ''} />
-              {errors.branch_name && <span className="field-error">{errors.branch_name}</span>}
-            </div>
-            <div className="field">
-              <label>Account Number <span className="req">*</span></label>
-              <input type="text" value={form.account_number}
-                onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
-                placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} className={errors.account_number ? 'error' : ''} />
-              {errors.account_number && <span className="field-error">{errors.account_number}</span>}
-            </div>
-            <div className="field">
               <label>IFSC Code <span className="req">*</span></label>
               <input type="text" value={form.ifsc_code}
                 onChange={(e) => set('ifsc_code', e.target.value.toUpperCase().slice(0, 11))}
@@ -1300,6 +1293,18 @@ export default function EditOnboardingModal({
               {ifscBankMismatch && (
                 <span className="field-error">Selected bank doesn't match this IFSC's bank ({ifscBankMismatch}).</span>
               )}
+            </div>
+            <div className="field">
+              <label>Branch Name <span className="req">*</span></label>
+              <input type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" className={errors.branch_name ? 'error' : ''} />
+              {errors.branch_name && <span className="field-error">{errors.branch_name}</span>}
+            </div>
+            <div className="field">
+              <label>Account Number <span className="req">*</span></label>
+              <input type="text" value={form.account_number}
+                onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
+                placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} className={errors.account_number ? 'error' : ''} />
+              {errors.account_number && <span className="field-error">{errors.account_number}</span>}
             </div>
           </div>
         </div>
@@ -1445,8 +1450,12 @@ export default function EditOnboardingModal({
             </div>
             {!isCustomer && (
               <div className="field">
-                <label>TDS Codes</label>
+                <label>
+                  TDS Codes
+                  {isTdsMandatoryForGroupCode(form.group_code) && <span className="req">*</span>}
+                </label>
                 <TDSCodeSelect value={form.tds_codes} onChange={(value) => set('tds_codes', value)} />
+                {errors.tds_codes && <span className="field-error">{errors.tds_codes}</span>}
               </div>
             )}
           </div>

@@ -5,9 +5,35 @@ from .models import (
     VENDOR_REFERENCE_RANGES, ExtensionEditRequest,
 )
 
-EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+# Strict email format check: proper local part (no leading/trailing/consecutive
+# dots), a domain with at least one dot and a 2+ letter TLD, no consecutive dots
+# in the domain, and the RFC 5321 max length of 254 characters.
+EMAIL_RE = re.compile(
+    r'^(?!\.)[A-Za-z0-9._%+-]+(?<!\.)@(?!-)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$'
+)
 PHONE_RE = re.compile(r'^(?:\+91|91|0)?[6-9]\d{9}$')
 ACCOUNT_NUMBER_RE = re.compile(r'^[A-Za-z0-9]{9,34}$')
+
+
+def is_valid_email(value):
+    value = str(value or '').strip()
+    if not value or len(value) > 254:
+        return False
+    if '..' in value:
+        return False
+    return bool(EMAIL_RE.match(value))
+
+# Vendor Reference Master group codes for which TDS Codes must be filled in.
+TDS_MANDATORY_GROUP_CODES = {
+    'VC&F', 'VRMS', 'VSMS', 'VPMS', 'VCIS', 'VCON', 'VPRF', 'VTRP', 'VOTH', 'VMKT',
+}
+
+
+def group_code_for_vendor_reference_range(vendor_reference_range):
+    if not vendor_reference_range:
+        return ''
+    master = VendorReferenceMaster.objects.filter(vendor_reference_range=vendor_reference_range).first()
+    return (master.group_code if master else '') or ''
 
 GST_STATE_CODES = {
     'Jammu And Kashmir': '01',
@@ -245,7 +271,7 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
             non_empty_phones = [str(phone or '').strip() for phone in phones if str(phone or '').strip()]
             if not non_empty_emails:
                 errors['emails'] = ['At least one email is required.']
-            elif [email for email in non_empty_emails if not EMAIL_RE.match(email)]:
+            elif [email for email in non_empty_emails if not is_valid_email(email)]:
                 errors['emails'] = ['Enter valid email address(es).']
             if not non_empty_phones:
                 errors['phones'] = ['At least one phone number is required.']
@@ -264,6 +290,11 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
                     errors['msme_category'] = ['MSME category is required.']
                 if not str(current('udyam_number', '') or '').strip():
                     errors['udyam_number'] = ['Udyam registration number is required.']
+
+            if not is_customer:
+                group_code = group_code_for_vendor_reference_range(current('vendor_reference_range', ''))
+                if group_code.upper() in TDS_MANDATORY_GROUP_CODES and not str(current('tds_codes', '') or '').strip():
+                    errors['tds_codes'] = [f'TDS Codes is mandatory for vendor reference group "{group_code}".']
 
             if errors:
                 raise serializers.ValidationError(errors)
@@ -287,6 +318,11 @@ class CreateOnboardingSerializer(serializers.Serializer):
     email = serializers.EmailField()
     onboarding_type = serializers.ChoiceField(choices=['VENDOR', 'CUSTOMER'])
     approval_boss = serializers.UUIDField(required=False, allow_null=True)
+
+    def validate_email(self, value):
+        if not is_valid_email(value):
+            raise serializers.ValidationError('Enter a valid email address.')
+        return value
 
 
 class ApproveRejectSerializer(serializers.Serializer):

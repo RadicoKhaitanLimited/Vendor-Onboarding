@@ -1,6 +1,23 @@
+import re
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User
+
+# Strict email format check: proper local part (no leading/trailing/consecutive
+# dots), a domain with at least one dot and a 2+ letter TLD, no consecutive dots
+# in the domain, and the RFC 5321 max length of 254 characters.
+EMAIL_RE = re.compile(
+    r'^(?!\.)[A-Za-z0-9._%+-]+(?<!\.)@(?!-)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$'
+)
+
+
+def is_valid_email(value):
+    value = str(value or '').strip()
+    if not value or len(value) > 254:
+        return False
+    if '..' in value:
+        return False
+    return bool(EMAIL_RE.match(value))
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -71,6 +88,11 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = ['full_name', 'email']
 
+    def validate_email(self, value):
+        if not is_valid_email(value):
+            raise serializers.ValidationError('Enter a valid email address.')
+        return value
+
 
 class UserAdminUpdateSerializer(serializers.ModelSerializer):
     """Superuser-only account and reporting-hierarchy editor."""
@@ -89,6 +111,11 @@ class UserAdminUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['full_name', 'email', 'role', 'is_active', 'is_superuser', 'bosses', 'employees']
+
+    def validate_email(self, value):
+        if not is_valid_email(value):
+            raise serializers.ValidationError('Enter a valid email address.')
+        return value
 
     def validate(self, attrs):
         role = attrs.get('role', self.instance.role)
@@ -124,6 +151,11 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def validate_role(self, value):
         if value not in ['ADMIN', 'BOSS', 'EMPLOYEE']:
             raise serializers.ValidationError('Role must be ADMIN, BOSS, or EMPLOYEE.')
+        return value
+
+    def validate_email(self, value):
+        if not is_valid_email(value):
+            raise serializers.ValidationError('Enter a valid email address.')
         return value
 
     def validate(self, attrs):

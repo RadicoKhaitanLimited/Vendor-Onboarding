@@ -8,6 +8,7 @@ import { validateGstStateCode } from '../constants/gstStateCodes'
 import { isPanNameEditable } from '../utils/panName'
 import { useCityPincodeSync } from '../utils/useCityPincodeSync'
 import { useIfscVerification } from '../utils/useIfscVerification'
+import { isValidEmail } from '../utils/email'
 
 const STEPS = [
   { id: 1, label: 'Basic Info' },
@@ -35,11 +36,9 @@ const BANKS = [
 const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/
 const GST_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/
 const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const PHONE_RE = /^(?:\+91|91|0)?[6-9]\d{9}$/
 const ACCOUNT_NUMBER_RE = /^[A-Za-z0-9]{9,34}$/
 
-const isValidEmail = (value) => EMAIL_RE.test(value.trim())
 const isValidPhone = (value) => PHONE_RE.test(value.trim().replace(/[\s-]/g, ''))
 const isValidAccountNumber = (value) => ACCOUNT_NUMBER_RE.test(value.trim())
 
@@ -773,16 +772,6 @@ export default function OnboardingFormPage() {
                   {errors.bank_name && <span className="field-error">{errors.bank_name}</span>}
                 </div>
                 <div className="field">
-                  <label htmlFor="f-branch-name">Branch Name <span className="req">*</span></label>
-                  <input id="f-branch-name" type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" disabled={isReadOnly} className={errors.branch_name ? 'error' : ''} />
-                  {errors.branch_name && <span className="field-error">{errors.branch_name}</span>}
-                </div>
-                <div className="field">
-                  <label htmlFor="f-account-number">Account Number <span className="req">*</span></label>
-                  <input id="f-account-number" type="text" value={form.account_number} onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))} placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.account_number ? 'error' : ''} />
-                  {errors.account_number && <span className="field-error">{errors.account_number}</span>}
-                </div>
-                <div className="field">
                   <label htmlFor="f-ifsc">IFSC Code <span className="req">*</span></label>
                   <input id="f-ifsc" type="text" value={form.ifsc_code} onChange={(e) => set('ifsc_code', e.target.value.toUpperCase().slice(0, 11))} placeholder="SBIN0001234" maxLength={11} style={{ textTransform: 'uppercase', fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.ifsc_code ? 'error' : ''} />
                   <span className="hint">Format: 4 letters + 0 + 6 alphanumeric</span>
@@ -794,6 +783,16 @@ export default function OnboardingFormPage() {
                   {ifscBankMismatch && (
                     <span className="field-error">Selected bank doesn't match this IFSC's bank ({ifscBankMismatch}).</span>
                   )}
+                </div>
+                <div className="field">
+                  <label htmlFor="f-branch-name">Branch Name <span className="req">*</span></label>
+                  <input id="f-branch-name" type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" disabled={isReadOnly} className={errors.branch_name ? 'error' : ''} />
+                  {errors.branch_name && <span className="field-error">{errors.branch_name}</span>}
+                </div>
+                <div className="field">
+                  <label htmlFor="f-account-number">Account Number <span className="req">*</span></label>
+                  <input id="f-account-number" type="text" value={form.account_number} onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))} placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.account_number ? 'error' : ''} />
+                  {errors.account_number && <span className="field-error">{errors.account_number}</span>}
                 </div>
               </div>
             </div>

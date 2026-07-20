@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
+import { isValidEmail } from '../utils/email'
 
 export default function CreateOnboardingModal({ onClose, onCreated }) {
   const toast = useToast()
@@ -12,6 +13,10 @@ export default function CreateOnboardingModal({ onClose, onCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    if (!isValidEmail(email)) {
+      setError('Enter a valid email address.')
+      return
+    }
     if (!type) {
       setError('Please select Vendor or Customer onboarding.')
       return

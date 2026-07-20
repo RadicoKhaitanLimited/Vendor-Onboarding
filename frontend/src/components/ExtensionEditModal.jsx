@@ -428,24 +428,6 @@ export default function ExtensionEditModal({ onClose, onCreated }) {
                     {errors.bank_name && <span className="field-error">{errors.bank_name}</span>}
                   </div>
                   <div className="field">
-                    <label>Branch Name</label>
-                    <input type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" className={errors.branch_name ? 'error' : ''} />
-                    {errors.branch_name && <span className="field-error">{errors.branch_name}</span>}
-                  </div>
-                  <div className="field">
-                    <label>Account Number</label>
-                    <input
-                      type="text"
-                      value={form.bank_account_number}
-                      onChange={(e) => set('bank_account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
-                      placeholder="Account number"
-                      maxLength={34}
-                      style={{ fontFamily: 'var(--mono)' }}
-                      className={errors.bank_account_number ? 'error' : ''}
-                    />
-                    {errors.bank_account_number && <span className="field-error">{errors.bank_account_number}</span>}
-                  </div>
-                  <div className="field">
                     <label>IFSC Code</label>
                     <input
                       type="text"
@@ -463,6 +445,24 @@ export default function ExtensionEditModal({ onClose, onCreated }) {
                     {ifscBankMismatch && (
                       <span className="field-error">Selected bank doesn't match this IFSC's bank ({ifscBankMismatch}).</span>
                     )}
+                  </div>
+                  <div className="field">
+                    <label>Branch Name</label>
+                    <input type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" className={errors.branch_name ? 'error' : ''} />
+                    {errors.branch_name && <span className="field-error">{errors.branch_name}</span>}
+                  </div>
+                  <div className="field">
+                    <label>Account Number</label>
+                    <input
+                      type="text"
+                      value={form.bank_account_number}
+                      onChange={(e) => set('bank_account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
+                      placeholder="Account number"
+                      maxLength={34}
+                      style={{ fontFamily: 'var(--mono)' }}
+                      className={errors.bank_account_number ? 'error' : ''}
+                    />
+                    {errors.bank_account_number && <span className="field-error">{errors.bank_account_number}</span>}
                   </div>
                 </div>
               </div>
