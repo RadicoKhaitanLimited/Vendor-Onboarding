@@ -8,6 +8,7 @@ import CreateOnboardingModal from '../components/CreateOnboardingModal'
 import ManageUsersModal from '../components/ManageUsersModal'
 import ManualOnboardingModal from '../components/ManualOnboardingModal'
 import BulkImportModal from '../components/BulkImportModal'
+import ExtensionEditModal from '../components/ExtensionEditModal'
 import { formatMsmeOption, normalizeMsmeCode } from '../constants/msme'
 
 const STATUS_CLASS = {
@@ -19,6 +20,11 @@ const STATUS_LABEL = {
   APPROVED: 'Approved', REJECTED: 'Rejected',
 }
 const PENDING_GROUP_FILTER = 'PENDING_GROUP'
+
+const REQUEST_TYPE_LABEL = {
+  EXTENSION: 'Extension',
+  EDIT: 'Edit',
+}
 
 const PAN_STATUS = {
   NOT_VERIFIED: 'not_verified',
@@ -125,13 +131,18 @@ export default function DashboardPage() {
   const [showUsersModal, setShowUsersModal] = useState(false)
   const [showManualModal, setShowManualModal] = useState(false)
   const [showBulkImportModal, setShowBulkImportModal] = useState(false)
+  const [showExtensionEditModal, setShowExtensionEditModal] = useState(false)
   const [selectedIds, setSelectedIds] = useState([])
   const [bulkSendBoss, setBulkSendBoss] = useState('')
   const [bulkSending, setBulkSending] = useState(false)
+  const [selectedKind, setSelectedKind] = useState('onboarding')
 
   useEffect(() => {
     const approvalId = searchParams.get('approval')
-    if (approvalId) setSelectedId(approvalId)
+    if (approvalId) {
+      setSelectedId(approvalId)
+      setSelectedKind(searchParams.get('approval_kind') === 'extension_edit' ? 'extension_edit' : 'onboarding')
+    }
   }, [searchParams])
 
   const fetchData = useCallback(async () => {
@@ -144,7 +155,14 @@ export default function DashboardPage() {
       if (startDate) params.start_date = startDate
       if (endDate) params.end_date = endDate
 
-      const [listRes, statsRes] = await Promise.all([
+      const extensionEditParams = {}
+      if (search) extensionEditParams.search = search
+      if (statusFilter) extensionEditParams.status = statusFilter
+      if (startDate) extensionEditParams.start_date = startDate
+      if (endDate) extensionEditParams.end_date = endDate
+      if (typeFilter) extensionEditParams.target_type = typeFilter
+
+      const [listRes, statsRes, extensionEditRes] = await Promise.all([
         api.get('/onboarding/', { params }),
         api.get('/onboarding/stats/', {
           params: {
@@ -153,8 +171,18 @@ export default function DashboardPage() {
             ...(endDate ? { end_date: endDate } : {}),
           },
         }),
+        api.get('/onboarding/extension-edit/', { params: extensionEditParams }),
       ])
-      setOnboardings(listRes.data)
+      const taggedOnboardings = listRes.data.map((item) => ({ ...item, _kind: 'onboarding' }))
+      const taggedExtensionEdit = extensionEditRes.data.map((item) => ({
+        ...item,
+        _kind: 'extension_edit',
+        onboarding_code: item.request_code,
+        onboarding_type: item.target_type,
+      }))
+      const merged = [...taggedOnboardings, ...taggedExtensionEdit]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      setOnboardings(merged)
       setStats(statsRes.data)
     } catch {
       toast.error('Failed to load data')
@@ -180,11 +208,17 @@ export default function DashboardPage() {
     toast.success('Onboarding created', 'Vendor/customer record created successfully.')
   }
 
+  const handleExtensionEditCreated = () => {
+    setShowExtensionEditModal(false)
+    fetchData()
+  }
+
   const handleBulkImported = () => {
     fetchData()
   }
 
   const isRowSelectable = (o) => {
+    if (o._kind === 'extension_edit') return false
     if (user?.role === 'BOSS') return o.status !== 'APPROVED' && o.status !== 'REJECTED'
     if (user?.role === 'EMPLOYEE') {
       return o.status !== 'APPROVED'
@@ -345,6 +379,10 @@ export default function DashboardPage() {
 
   const handleRowExport = async (event, onboarding) => {
     event.stopPropagation()
+    if (onboarding._kind === 'extension_edit') {
+      toast.error('Export unavailable', 'Extension/edit requests cannot be exported.')
+      return
+    }
     if (onboarding.status !== 'APPROVED') {
       toast.error('Export unavailable', 'Only approved records can be exported.')
       return
@@ -407,6 +445,9 @@ export default function DashboardPage() {
             </button>
             <button className="btn btn-primary dashboard-action-btn dashboard-primary-action" onClick={() => setShowCreateModal(true)}>
               Generate Onboarding Link
+            </button>
+            <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowExtensionEditModal(true)}>
+              Extension / Edit Vendor or Customer
             </button>
           </div>
           <div className="dashboard-actions-right">
@@ -653,11 +694,13 @@ export default function DashboardPage() {
 
                   const isSelected = selectedIds.includes(o.id)
 
+                  const isExtensionEdit = o._kind === 'extension_edit'
+
                   return (
                   <tr
                     key={o.id}
                     className={[getVerificationRowClass(o), isSelected ? 'row-selected' : ''].filter(Boolean).join(' ')}
-                    onClick={() => setSelectedId(o.id)}
+                    onClick={() => { setSelectedId(o.id); setSelectedKind(o._kind) }}
                   >
                     {(user?.role === 'EMPLOYEE' || user?.role === 'BOSS') && (
                       <td className="select-col" onClick={(event) => event.stopPropagation()}>
@@ -666,9 +709,11 @@ export default function DashboardPage() {
                           title={
                             selectable
                               ? ''
-                              : user?.role === 'EMPLOYEE'
-                                ? 'PAN and GST must both be verified before sending for approval'
-                                : 'Already finalized'
+                              : isExtensionEdit
+                                ? 'Extension/edit requests are managed individually'
+                                : user?.role === 'EMPLOYEE'
+                                  ? 'PAN and GST must both be verified before sending for approval'
+                                  : 'Already finalized'
                           }
                         >
                           <input
@@ -685,27 +730,36 @@ export default function DashboardPage() {
                     <td>
                       <span className={`type-badge ${o.onboarding_type === 'VENDOR' ? 'type-vendor' : 'type-customer'}`}>
                         {o.onboarding_type === 'VENDOR' ? 'Vendor' : 'Customer'}
+                        {isExtensionEdit ? ` ${REQUEST_TYPE_LABEL[o.request_type] || ''}` : ''}
                       </span>
                     </td>
                     <td style={{ fontWeight: o.company_name ? 500 : 400 }}>
                       {o.company_name || <span style={{ color: 'var(--muted)' }}>—</span>}
                     </td>
                     <td>
-                      {o.pan_number
+                      {!isExtensionEdit && o.pan_number
                         ? <span style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{o.pan_number}</span>
                         : <span style={{ color: 'var(--muted)' }}>—</span>
                       }
                     </td>
                     <td>
-                      <span className={`badge ${pan.className}`}>{pan.label}</span>
+                      {isExtensionEdit
+                        ? <span style={{ color: 'var(--muted)' }}>—</span>
+                        : <span className={`badge ${pan.className}`}>{pan.label}</span>
+                      }
                     </td>
                     <td>
-                      <span className={`badge ${gst.className}`}>{gst.label}</span>
+                      {isExtensionEdit
+                        ? <span style={{ color: 'var(--muted)' }}>—</span>
+                        : <span className={`badge ${gst.className}`}>{gst.label}</span>
+                      }
                     </td>
                     <td>
-                      {normalizeMsmeCode(o.msme_status) === 'MNA'
-                        ? <span className="badge badge-mna">{formatMsmeOption('MNA')}</span>
-                        : <span className="badge badge-success">{formatMsmeOption(o.msme_status)}</span>
+                      {isExtensionEdit
+                        ? <span style={{ color: 'var(--muted)' }}>—</span>
+                        : normalizeMsmeCode(o.msme_status) === 'MNA'
+                          ? <span className="badge badge-mna">{formatMsmeOption('MNA')}</span>
+                          : <span className="badge badge-success">{formatMsmeOption(o.msme_status)}</span>
                       }
                     </td>
                     <td>
@@ -721,10 +775,10 @@ export default function DashboardPage() {
                         type="button"
                         className="btn-icon row-export-btn"
                         onClick={(event) => handleRowExport(event, o)}
-                        disabled={o.status !== 'APPROVED' || rowExportingId === o.id}
-                        title={o.status === 'APPROVED' ? 'Export this record' : 'Only approved records can be exported'}
+                        disabled={isExtensionEdit || o.status !== 'APPROVED' || rowExportingId === o.id}
+                        title={isExtensionEdit ? 'Extension/edit requests cannot be exported' : o.status === 'APPROVED' ? 'Export this record' : 'Only approved records can be exported'}
                       >
-                        {rowExportingId === o.id ? '...' : 'Export'}
+                        {isExtensionEdit ? '—' : rowExportingId === o.id ? '...' : 'Export'}
                       </button>
                     </td>
                   </tr>
@@ -739,11 +793,14 @@ export default function DashboardPage() {
       {selectedId && (
         <OnboardingDetailPanel
           id={selectedId}
+          kind={selectedKind}
           onClose={() => {
             setSelectedId(null)
+            setSelectedKind('onboarding')
             if (searchParams.has('approval')) {
               const nextParams = new URLSearchParams(searchParams)
               nextParams.delete('approval')
+              nextParams.delete('approval_kind')
               setSearchParams(nextParams, { replace: true })
             }
           }}
@@ -773,6 +830,13 @@ export default function DashboardPage() {
         <BulkImportModal
           onClose={() => setShowBulkImportModal(false)}
           onImported={handleBulkImported}
+        />
+      )}
+
+      {showExtensionEditModal && (
+        <ExtensionEditModal
+          onClose={() => setShowExtensionEditModal(false)}
+          onCreated={handleExtensionEditCreated}
         />
       )}
     </>

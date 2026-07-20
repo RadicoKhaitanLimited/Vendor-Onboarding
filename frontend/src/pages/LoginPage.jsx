@@ -111,11 +111,8 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div style={{
-                background: '#FEF2F2', border: '1px solid #FCA5A5',
-                borderRadius: 8, padding: '10px 14px', marginBottom: '1.25rem',
-                fontSize: 13, color: '#B91C1C',
-              }}>
+              <div className="login-error" role="alert">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v5" /><path d="M12 16.5v.01" /></svg>
                 {error}
               </div>
             )}

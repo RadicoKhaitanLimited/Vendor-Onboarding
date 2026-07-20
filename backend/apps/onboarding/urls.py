@@ -11,6 +11,8 @@ from .views import (
     SalesOrganizationListView, DistributionChannelListView, DivisionListView,
     TransportationZoneListView, CustomerCompanyCodeListView, CustomerSearchTermListView,
     DeliveryPlantListView,
+    ExtensionEditRequestListView, CreateExtensionEditRequestView, ExtensionEditRequestDetailView,
+    SendExtensionEditRequestToBossView, ApproveExtensionEditRequestView, RejectExtensionEditRequestView,
 )
 
 urlpatterns = [
@@ -48,6 +50,12 @@ urlpatterns = [
     path('customer-company-codes/', CustomerCompanyCodeListView.as_view(), name='customer_company_code_list'),
     path('customer-search-terms/', CustomerSearchTermListView.as_view(), name='customer_search_term_list'),
     path('delivery-plants/', DeliveryPlantListView.as_view(), name='delivery_plant_list'),
+    path('extension-edit/', ExtensionEditRequestListView.as_view(), name='extension_edit_list'),
+    path('extension-edit/create/', CreateExtensionEditRequestView.as_view(), name='extension_edit_create'),
+    path('extension-edit/<uuid:pk>/', ExtensionEditRequestDetailView.as_view(), name='extension_edit_detail'),
+    path('extension-edit/<uuid:pk>/send-to-boss/', SendExtensionEditRequestToBossView.as_view(), name='extension_edit_send_to_boss'),
+    path('extension-edit/<uuid:pk>/approve/', ApproveExtensionEditRequestView.as_view(), name='extension_edit_approve'),
+    path('extension-edit/<uuid:pk>/reject/', RejectExtensionEditRequestView.as_view(), name='extension_edit_reject'),
     # path('verify-pan/', VerifyPANAPIView.as_view(),name='verify-pan'),
     path("verify-pan/",VerifyPANAPIView.as_view(), name="verify-pan"),
     path("verify-gst/", VerifyGSTAPIView.as_view(), name="verify-gst"),

@@ -144,7 +144,6 @@ export default function OnboardingFormPage() {
             city: ob.city || '',
             state: ob.state || '',
             pincode: ob.pincode || '',
-            date_of_birth:ob.date_of_birth || "",
             country: ob.country || 'India',
             street1: ob.street1 || '',
             street2: ob.street2 || '',
@@ -363,7 +362,6 @@ export default function OnboardingFormPage() {
     city: form.city,
     state: form.state,
     pincode: form.pincode,
-    date_of_birth: form.date_of_birth,
     country: form.country,
     street1: form.street1,
     street2: form.street2,
@@ -674,16 +672,6 @@ export default function OnboardingFormPage() {
             <div className="card">
               <div className="card-title"><div className="card-title-icon">🏛️</div>Tax & Compliance</div>
               <div className="grid-2">
-                <div className="field span-2">
-                  <label htmlFor="f-dob">Date of Birth/Commencement</label>
-                  <input
-                    id="f-dob"
-                    type="date"
-                    value={form.date_of_birth}
-                    onChange={(e) => set('date_of_birth', e.target.value)}
-                    disabled={isReadOnly}
-                  />
-                </div>
                 <div className="field span-2">
                   <label htmlFor="f-pan-number">PAN Number <span className="req">*</span></label>
                   <input

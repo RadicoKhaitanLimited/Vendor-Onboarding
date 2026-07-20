@@ -2,7 +2,7 @@ import re
 from rest_framework import serializers
 from .models import (
     Onboarding, OnboardingToken, VendorReferenceMaster, OnboardingApprovalHistory,
-    VENDOR_REFERENCE_RANGES,
+    VENDOR_REFERENCE_RANGES, ExtensionEditRequest,
 )
 
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
@@ -300,6 +300,89 @@ class OnboardingApprovalHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = OnboardingApprovalHistory
         fields = ['id', 'action', 'comments', 'actor_email', 'actor_name', 'created_at']
+
+
+class ExtensionEditRequestListSerializer(serializers.ModelSerializer):
+    created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
+    approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True)
+    assigned_boss_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExtensionEditRequest
+        fields = [
+            'id', 'request_code', 'request_type', 'target_type', 'account_number',
+            'company_name', 'status', 'created_at', 'updated_at',
+            'created_by_email', 'approved_by_email', 'assigned_boss_email', 'remarks',
+        ]
+
+    def get_assigned_boss_email(self, obj):
+        if obj.assigned_user and obj.assigned_user.role == 'BOSS':
+            return obj.assigned_user.email
+        return ''
+
+
+class ExtensionEditRequestSerializer(serializers.ModelSerializer):
+    created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
+    created_by_role = serializers.CharField(source='created_by.role', read_only=True)
+    assigned_boss_email = serializers.SerializerMethodField()
+    approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True)
+    approval_history = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExtensionEditRequest
+        fields = '__all__'
+        read_only_fields = [
+            'id', 'request_code', 'created_by', 'approved_by', 'approved_at', 'created_at', 'updated_at',
+        ]
+
+    def get_assigned_boss_email(self, obj):
+        if obj.assigned_user and obj.assigned_user.role == 'BOSS':
+            return obj.assigned_user.email
+        return ''
+
+    def get_approval_history(self, obj):
+        return OnboardingApprovalHistorySerializer(obj.approval_history.select_related('actor').all(), many=True).data
+
+    def validate_account_number(self, value):
+        value = re.sub(r'\s+', '', value or '')
+        if value and not ACCOUNT_NUMBER_RE.match(value):
+            raise serializers.ValidationError('Account number must be 9-34 alphanumeric characters, no spaces.')
+        return value
+
+    def validate_bank_account_number(self, value):
+        value = re.sub(r'\s+', '', value or '')
+        if value and not ACCOUNT_NUMBER_RE.match(value):
+            raise serializers.ValidationError('Account number must be 9-34 alphanumeric characters, no spaces.')
+        return value
+
+    def validate_ifsc_code(self, value):
+        value = (value or '').upper()
+        if value and not re.match(r'^[A-Z]{4}0[A-Z0-9]{6}$', value):
+            raise serializers.ValidationError('Invalid IFSC format. Expected: ABCD0123456')
+        return value
+
+    def validate_vendor_reference_range(self, value):
+        if not value:
+            return value
+        if not VendorReferenceMaster.objects.filter(vendor_reference_range=value).exists():
+            raise serializers.ValidationError('Select a valid vendor reference range.')
+        return value
+
+    def validate(self, data):
+        created_purchase_orgs = []
+        if 'purchase_orgs_to_open' in data:
+            created_purchase_orgs = normalize_purchase_org_list(data.get('purchase_orgs_to_open'))
+            data['purchase_orgs_to_open'] = ', '.join(created_purchase_orgs)
+
+        if created_purchase_orgs:
+            data['reference_purchase_orgs'] = created_purchase_orgs
+            data['company_code_to_open'] = company_code_for_purchase_org(created_purchase_orgs[0])
+        elif 'reference_purchase_orgs' in data:
+            data['reference_purchase_orgs'] = normalize_purchase_org_list(data.get('reference_purchase_orgs'))
+            selected_reference_org = data['reference_purchase_orgs'][0] if data['reference_purchase_orgs'] else ''
+            data['company_code_to_open'] = company_code_for_purchase_org(selected_reference_org)
+
+        return data
 
 
 class OnboardingTokenSerializer(serializers.ModelSerializer):

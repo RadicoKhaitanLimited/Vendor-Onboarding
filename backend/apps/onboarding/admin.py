@@ -5,7 +5,7 @@ from .models import (
     TDSCodeMaster, SearchTermMaster,
     SalesOrganizationMaster, DistributionChannelMaster, DivisionMaster,
     TransportationZoneMaster, CustomerCompanyCodeMaster, CustomerSearchTermMaster,
-    DeliveryPlantMaster,
+    DeliveryPlantMaster, ExtensionEditRequest,
 )
 
 
@@ -18,6 +18,17 @@ class OnboardingAdmin(admin.ModelAdmin):
     list_filter = ['onboarding_type', 'status', 'msme_applicable']
     search_fields = ['onboarding_code', 'company_name', 'pan_number', 'gst_number']
     readonly_fields = ['id', 'onboarding_code', 'created_at', 'updated_at']
+
+
+@admin.register(ExtensionEditRequest)
+class ExtensionEditRequestAdmin(admin.ModelAdmin):
+    list_display = [
+        'request_code', 'request_type', 'target_type', 'account_number',
+        'company_name', 'status', 'created_at',
+    ]
+    list_filter = ['request_type', 'target_type', 'status']
+    search_fields = ['request_code', 'account_number', 'company_name']
+    readonly_fields = ['id', 'request_code', 'created_at', 'updated_at']
 
 
 @admin.register(OnboardingToken)

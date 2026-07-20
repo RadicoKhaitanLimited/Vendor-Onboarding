@@ -1,6 +1,7 @@
 import uuid
 import secrets
 from django.db import models
+from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.conf import settings
@@ -210,6 +211,105 @@ class Onboarding(models.Model):
         return f"{self.onboarding_code} - {self.company_name or 'Unnamed'}"
 
 
+def generate_extension_edit_code(request_type, target_type):
+    prefix = ('V' if target_type == 'VENDOR' else 'C') + ('E' if request_type == 'EXTENSION' else 'D')
+    last = (
+        ExtensionEditRequest.objects.filter(request_type=request_type, target_type=target_type)
+        .order_by('-created_at')
+        .first()
+    )
+    if last and last.request_code:
+        try:
+            num = int(last.request_code[len(prefix):]) + 1
+        except ValueError:
+            num = 1
+    else:
+        num = 1
+    return f"{prefix}{num}"
+
+
+class ExtensionEditRequest(models.Model):
+    REQUEST_TYPE_CHOICES = [
+        ('EXTENSION', 'Extension'),
+        ('EDIT', 'Edit'),
+    ]
+    TARGET_TYPE_CHOICES = [
+        ('VENDOR', 'Vendor'),
+        ('CUSTOMER', 'Customer'),
+    ]
+    STATUS_CHOICES = Onboarding.STATUS_CHOICES
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    request_code = models.CharField(max_length=20, unique=True, blank=True)
+    request_type = models.CharField(max_length=10, choices=REQUEST_TYPE_CHOICES)
+    target_type = models.CharField(max_length=10, choices=TARGET_TYPE_CHOICES)
+
+    account_number = models.CharField(max_length=34, blank=True)
+    company_name = models.CharField(max_length=255, blank=True)
+    remarks_request = models.TextField(blank=True)
+
+    # Vendor SAP / ERP reference fields
+    reference_vendor_code = models.CharField(max_length=50, blank=True)
+    vendor_reference_range = models.CharField(max_length=20, blank=True)
+    reference_name = models.CharField(max_length=255, blank=True)
+    gl_account_number = models.CharField(max_length=50, blank=True)
+    gl_account_description = models.CharField(max_length=255, blank=True)
+    reference_purchase_orgs = models.JSONField(default=list, blank=True)
+    purchase_orgs_to_open = models.CharField(max_length=50, blank=True)
+    search_term = models.CharField(max_length=50, blank=True)
+    company_code_to_open = models.CharField(max_length=20, blank=True)
+    payment_terms = models.CharField(max_length=50, blank=True)
+    tds_codes = models.CharField(max_length=255, blank=True)
+
+    # Vendor bank account details
+    account_holder_name = models.CharField(max_length=255, blank=True)
+    bank_name = models.CharField(max_length=100, blank=True)
+    branch_name = models.CharField(max_length=100, blank=True)
+    bank_account_number = models.CharField(max_length=34, blank=True)
+    ifsc_code = models.CharField(max_length=11, blank=True)
+
+    # Customer SAP / ERP reference fields
+    sales_reference_orgs = models.JSONField(default=list, blank=True)
+    customer_search_term = models.CharField(max_length=50, blank=True)
+    sales_organization = models.JSONField(default=list, blank=True)
+    distribution_channel = models.CharField(max_length=50, blank=True)
+    division = models.CharField(max_length=50, blank=True)
+    delivery_plant = models.CharField(max_length=20, blank=True)
+    transportation_zone = models.CharField(max_length=50, blank=True)
+    customer_company_code = models.CharField(max_length=20, blank=True)
+
+    # Workflow
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='DRAFT')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_extension_edit_requests'
+    )
+    assigned_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='assigned_extension_edit_requests'
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='approved_extension_edit_requests'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    remarks = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'extension_edit_requests'
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.request_code:
+            self.request_code = generate_extension_edit_code(self.request_type, self.target_type)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.request_code} - {self.account_number}"
+
+
 class OnboardingApprovalHistory(models.Model):
     ACTION_CHOICES = [
         ('SUBMITTED', 'Submitted'),
@@ -217,7 +317,14 @@ class OnboardingApprovalHistory(models.Model):
         ('REJECTED', 'Rejected'),
     ]
 
-    onboarding = models.ForeignKey(Onboarding, on_delete=models.CASCADE, related_name='approval_history')
+    onboarding = models.ForeignKey(
+        Onboarding, on_delete=models.CASCADE, related_name='approval_history',
+        null=True, blank=True,
+    )
+    extension_edit_request = models.ForeignKey(
+        ExtensionEditRequest, on_delete=models.CASCADE, related_name='approval_history',
+        null=True, blank=True,
+    )
     action = models.CharField(max_length=20, choices=ACTION_CHOICES)
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -232,9 +339,18 @@ class OnboardingApprovalHistory(models.Model):
     class Meta:
         db_table = 'onboarding_approval_history'
         ordering = ['-created_at']
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(onboarding__isnull=False, extension_edit_request__isnull=True)
+                    | Q(onboarding__isnull=True, extension_edit_request__isnull=False)
+                ),
+                name='approval_history_exactly_one_target',
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.onboarding} - {self.action}"
+        return f"{self.onboarding or self.extension_edit_request} - {self.action}"
 
 
 class OnboardingToken(models.Model):

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import api from '../api/axios'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
@@ -163,6 +163,8 @@ export default function EditOnboardingModal({
   const [panVerification, setPanVerification] =
   useState(null)
 
+  const isPanInoperative = hasAny(panVerification?.verification_status, ['inoperative', 'not operative'])
+
   const [panLoading, setPanLoading] =
     useState(false)
 
@@ -180,7 +182,6 @@ export default function EditOnboardingModal({
     city:                data.city || '',
     state:               data.state || '',
     pincode:             data.pincode || '',
-    date_of_birth: data.date_of_birth || '',
     country:             data.country || 'India',
     street1:             data.street1 || '',
     street2:             data.street2 || '',
@@ -327,6 +328,48 @@ export default function EditOnboardingModal({
     ifscBankMismatch,
     ifscNotFound,
   } = useIfscVerification(form.ifsc_code, form.bank_name, form.branch_name, set)
+
+  // ── auto-save PAN number on edit, re-verifying against the latest value ──
+  const [autoSaveStatus, setAutoSaveStatus] = useState({}) // { pan_number: 'saving'|'saved'|'error' }
+  const autoSaveTimers = useRef({})
+
+  const AUTO_SAVE_FIELDS = {
+    pan_number: (value) => ({ pan_number: value ? value.toUpperCase() : '' }),
+  }
+
+  useEffect(() => () => {
+    Object.values(autoSaveTimers.current).forEach(clearTimeout)
+  }, [])
+
+  const autoSaveField = (key, value) => {
+    if (!canSave) return
+    if (!AUTO_SAVE_FIELDS[key]) return
+
+    // Any edit invalidates the previous verification result immediately.
+    if (key === 'pan_number') setPanVerification(null)
+
+    clearTimeout(autoSaveTimers.current[key])
+    autoSaveTimers.current[key] = setTimeout(async () => {
+      setAutoSaveStatus((prev) => ({ ...prev, [key]: 'saving' }))
+      try {
+        await api.patch(`/onboarding/${data.id}/`, AUTO_SAVE_FIELDS[key](value))
+        setAutoSaveStatus((prev) => ({ ...prev, [key]: 'saved' }))
+        if (key === 'pan_number' && value && PAN_RE.test(value.toUpperCase())) {
+          handleVerifyPan(value.toUpperCase())
+        }
+      } catch (err) {
+        setAutoSaveStatus((prev) => ({ ...prev, [key]: 'error' }))
+        const errData = err.response?.data
+        const message = (errData && typeof errData === 'object' && errData[key]) || errData?.detail || 'Could not auto-save.'
+        toast.error('Auto-save failed', Array.isArray(message) ? message.join(' ') : String(message))
+      }
+    }, 800)
+  }
+
+  const setAndAutoSave = (key, value) => {
+    set(key, value)
+    autoSaveField(key, value)
+  }
   const setCreatedPurchaseOrgs = (value) => {
     const selectedValues = Array.isArray(value) ? value : []
     const firstSelectedValue = selectedValues[0] || ''
@@ -438,7 +481,6 @@ export default function EditOnboardingModal({
         contact_person:      form.contact_person,
         emails:              form.emails.filter(Boolean),
         phones:              form.phones.filter(Boolean),
-        date_of_birth:       form.date_of_birth,
         district:            form.district,
         city:                form.city,
         state:               form.state,
@@ -667,23 +709,15 @@ export default function EditOnboardingModal({
     }
   }
 
-  const handleVerifyPan = async () => {
+  const handleVerifyPan = async (panOverride) => {
 
-    if (!form.pan_number) {
+    const panToVerify = panOverride || form.pan_number
+
+    if (!panToVerify) {
 
       toast.error(
         "Validation Error",
         "Please enter PAN Number"
-      )
-
-      return
-    }
-
-    if (!form.date_of_birth) {
-
-      toast.error(
-        "Date of Birth required",
-        "Enter and save the Date of Birth/Commencement before verifying PAN."
       )
 
       return
@@ -697,9 +731,7 @@ export default function EditOnboardingModal({
         "/onboarding/verify-pan/",
         {
           onboarding_id: data.id,
-          pan_number: form.pan_number,
-          date_of_birth: form.date_of_birth,
-          name: isPanNameEditable(form.pan_number) ? form.pan_name : form.company_name
+          pan_number: panToVerify,
         }
       )
 
@@ -956,15 +988,6 @@ export default function EditOnboardingModal({
           <div className="card-title"><div className="card-title-icon">🏛️</div>Tax & Compliance</div>
           <div className="grid-2">
             <div className="field span-2">
-              <label>Date of Birth/Commencement</label>
-              <input
-                type="date"
-                value={form.date_of_birth}
-                onChange={(e) => set('date_of_birth', e.target.value)}
-              />
-              <span className="hint">Required to verify PAN — save changes before verifying.</span>
-            </div>
-            <div className="field span-2">
   <label>PAN Number</label>
 
   <div style={{ display: 'flex', gap: '8px' }}>
@@ -972,7 +995,7 @@ export default function EditOnboardingModal({
       type="text"
       value={form.pan_number}
       onChange={(e) =>
-        set('pan_number', e.target.value.toUpperCase().slice(0, 10))
+        setAndAutoSave('pan_number', e.target.value.toUpperCase().slice(0, 10))
       }
       placeholder="ABCDE1234F"
       maxLength={10}
@@ -987,7 +1010,7 @@ export default function EditOnboardingModal({
   <button
     type="button"
     className={`btn btn-verify verification-button ${panLoading ? 'is-verifying' : ''} ${panVerification?.verified ? 'is-verified' : ''}`}
-    onClick={handleVerifyPan}
+    onClick={() => handleVerifyPan()}
     disabled={panLoading}
   >
     {panLoading ? <><span className="verify-spinner" /> Verifying PAN…</> : panVerification?.verified ? '✓ PAN Verified' : '✓ Verify PAN'}
@@ -1000,12 +1023,16 @@ export default function EditOnboardingModal({
     style={{
       marginTop: "14px",
       borderRadius: "12px",
-      border: panVerification.verified
-        ? "1px solid #22c55e"
-        : "1px solid #ef4444",
-      background: panVerification.verified
-        ? "#f0fdf4"
-        : "#fef2f2",
+      border: !panVerification.verified
+        ? "1px solid #ef4444"
+        : isPanInoperative
+        ? "1px solid #f59e0b"
+        : "1px solid #22c55e",
+      background: !panVerification.verified
+        ? "#fef2f2"
+        : isPanInoperative
+        ? "#fffbeb"
+        : "#f0fdf4",
       padding: "16px",
       display: "flex",
       gap: "14px",
@@ -1018,9 +1045,11 @@ export default function EditOnboardingModal({
         fontSize: "28px"
       }}
     >
-      {panVerification.verified
-        ? "✅"
-        : "❌"}
+      {!panVerification.verified
+        ? "❌"
+        : isPanInoperative
+        ? "⚠️"
+        : "✅"}
     </div>
 
     <div style={{ flex: 1 }}>
@@ -1029,14 +1058,18 @@ export default function EditOnboardingModal({
         style={{
           fontWeight: 700,
           fontSize: "15px",
-          color: panVerification.verified
-            ? "#166534"
-            : "#991b1b"
+          color: !panVerification.verified
+            ? "#991b1b"
+            : isPanInoperative
+            ? "#92400e"
+            : "#166534"
         }}
       >
-        {panVerification.verified
-          ? "PAN Verified Successfully"
-          : "PAN Verification Failed"}
+        {!panVerification.verified
+          ? "PAN Verification Failed"
+          : isPanInoperative
+          ? "PAN Valid but Inoperative"
+          : "PAN Verified Successfully"}
       </div>
 
       <div
@@ -1121,6 +1154,9 @@ export default function EditOnboardingModal({
 
   <span className="hint">
     Format: 5 letters + 4 digits + 1 letter
+    {autoSaveStatus.pan_number === 'saving' && ' · Saving…'}
+    {autoSaveStatus.pan_number === 'saved' && ' · Saved ✓'}
+    {autoSaveStatus.pan_number === 'error' && ' · Auto-save failed.'}
   </span>
 
   {errors.pan_number && (

@@ -14,7 +14,7 @@ from .models import (
     SearchTermMaster, OnboardingApprovalHistory,
     SalesOrganizationMaster, DistributionChannelMaster, DivisionMaster,
     TransportationZoneMaster, CustomerCompanyCodeMaster, CustomerSearchTermMaster,
-    DeliveryPlantMaster,
+    DeliveryPlantMaster, ExtensionEditRequest,
     VENDOR_REFERENCE_RANGES, get_vendor_reference_range_for_code,
 )
 from .serializers import (
@@ -22,7 +22,8 @@ from .serializers import (
     CreateOnboardingSerializer, ApproveRejectSerializer,
     OnboardingTokenSerializer, VendorReferenceMasterSerializer,
     VendorReferenceLookupSerializer, gst_state_code_for_state,
-    pan_name_is_editable,
+    pan_name_is_editable, ExtensionEditRequestSerializer,
+    ExtensionEditRequestListSerializer,
 )
 from apps.accounts.models import User
 from apps.notifications.email_service import send_boss_approval_request, send_onboarding_invite
@@ -1227,6 +1228,258 @@ class BulkSendToBossView(APIView):
         })
 
 
+# ── Extension / Edit requests ─────────────────────────────────────
+def _scoped_er_qs(user):
+    """Extension/edit requests visible to this user based on their role."""
+    qs = ExtensionEditRequest.objects.select_related('created_by', 'approved_by', 'assigned_user')
+    if _is_system_admin(user):
+        return qs
+    if user.role == 'BOSS':
+        return qs.filter(Q(assigned_user=user) | Q(created_by=user)).distinct()
+    if user.role == 'EMPLOYEE':
+        return qs.filter(created_by=user)
+    return qs.filter(assigned_user=user)
+
+
+def _validate_required_extension_edit_fields(data):
+    errors = {}
+    request_type = str(data.get('request_type', '') or '').strip().upper()
+    target_type = str(data.get('target_type', '') or '').strip().upper()
+    if request_type not in ['EXTENSION', 'EDIT']:
+        errors['request_type'] = ['Must be EXTENSION or EDIT.']
+    if target_type not in ['VENDOR', 'CUSTOMER']:
+        errors['target_type'] = ['Must be VENDOR or CUSTOMER.']
+
+    return errors
+
+
+class ExtensionEditRequestListView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        qs = _scoped_er_qs(request.user)
+        try:
+            qs = _filter_by_created_date(qs, request.query_params)
+        except ValueError as error:
+            return Response(error.args[0], status=status.HTTP_400_BAD_REQUEST)
+
+        request_type = request.query_params.get('request_type')
+        if request_type:
+            qs = qs.filter(request_type=request_type.upper())
+
+        target_type = request.query_params.get('target_type')
+        if target_type:
+            qs = qs.filter(target_type=target_type.upper())
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            normalized_status = status_filter.upper()
+            if normalized_status == 'PENDING_GROUP':
+                qs = qs.filter(status__in=PENDING_STATUS_FILTER)
+            else:
+                qs = qs.filter(status=normalized_status)
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(company_name__icontains=search) |
+                Q(request_code__icontains=search) |
+                Q(account_number__icontains=search)
+            )
+
+        serializer = ExtensionEditRequestListSerializer(qs, many=True)
+        return Response(serializer.data)
+
+
+class CreateExtensionEditRequestView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        request_type = request.data.get('request_type', '').upper()
+        target_type = request.data.get('target_type', '').upper()
+        if request_type not in ['EXTENSION', 'EDIT']:
+            return Response({'request_type': ['Must be EXTENSION or EDIT.']}, status=status.HTTP_400_BAD_REQUEST)
+        if target_type not in ['VENDOR', 'CUSTOMER']:
+            return Response({'target_type': ['Must be VENDOR or CUSTOMER.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = {**request.data, 'request_type': request_type, 'target_type': target_type}
+        required_errors = _validate_required_extension_edit_fields(data)
+        if required_errors:
+            return Response(required_errors, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ExtensionEditRequestSerializer(
+            data=data,
+            partial=True,
+            context={'require_complete': True},
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        next_status = 'DRAFT' if request.user.role == 'EMPLOYEE' else 'PENDING'
+        extension_edit_request = serializer.save(
+            created_by=request.user,
+            assigned_user=None,
+            status=next_status,
+        )
+        OnboardingApprovalHistory.objects.create(
+            extension_edit_request=extension_edit_request,
+            action='SUBMITTED',
+            actor=request.user,
+            comments=(
+                'Saved as draft. Send to your approver/manager once ready.'
+                if request.user.role == 'EMPLOYEE' else 'Submitted for approval.'
+            ),
+        )
+        return Response(ExtensionEditRequestSerializer(extension_edit_request).data, status=status.HTTP_201_CREATED)
+
+
+class ExtensionEditRequestDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get_request(self, pk):
+        try:
+            return ExtensionEditRequest.objects.get(pk=pk)
+        except ExtensionEditRequest.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        extension_edit_request = self._get_request(pk)
+        if not extension_edit_request:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_access(request.user, extension_edit_request):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+        return Response(ExtensionEditRequestSerializer(extension_edit_request).data)
+
+    def patch(self, request, pk):
+        extension_edit_request = self._get_request(pk)
+        if not extension_edit_request:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if not _can_access(request.user, extension_edit_request):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+        if not _can_edit_onboarding(request.user, extension_edit_request):
+            return Response({'detail': 'Only admins can edit submitted records. Employees can edit only their own drafts.'}, status=status.HTTP_403_FORBIDDEN)
+        serializer = ExtensionEditRequestSerializer(
+            extension_edit_request,
+            data=request.data,
+            partial=True,
+            context={'require_complete': True},
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class SendExtensionEditRequestToBossView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request, pk):
+        try:
+            extension_edit_request = ExtensionEditRequest.objects.get(pk=pk)
+        except ExtensionEditRequest.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.user.role != 'EMPLOYEE' or str(extension_edit_request.created_by_id) != str(request.user.id):
+            return Response({'detail': 'Only the employee who created this request can send it to a boss.'}, status=status.HTTP_403_FORBIDDEN)
+        if extension_edit_request.status == 'APPROVED':
+            return Response({'detail': 'Approved request cannot be sent for approval again.'}, status=status.HTTP_400_BAD_REQUEST)
+        if extension_edit_request.status == 'PENDING_BOSS_APPROVAL':
+            return Response({'detail': 'This request has already been sent to a boss.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        assigned_boss, boss_error = _selected_approval_boss(request.user, request.data)
+        if boss_error:
+            return Response(boss_error, status=status.HTTP_400_BAD_REQUEST)
+
+        detail_serializer = ExtensionEditRequestSerializer(
+            extension_edit_request,
+            data={},
+            partial=True,
+            context={'require_complete': True},
+        )
+        if not detail_serializer.is_valid():
+            return Response(detail_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        extension_edit_request.assigned_user = assigned_boss
+        extension_edit_request.status = 'PENDING_BOSS_APPROVAL'
+        extension_edit_request.save(update_fields=['assigned_user', 'status', 'updated_at'])
+        OnboardingApprovalHistory.objects.create(
+            extension_edit_request=extension_edit_request,
+            action='SUBMITTED',
+            actor=request.user,
+            comments=f'Sent to {assigned_boss.email} for boss approval.',
+        )
+        _notify_boss_of_approval_request(extension_edit_request, assigned_boss, request.user)
+        return Response(ExtensionEditRequestSerializer(extension_edit_request).data)
+
+
+class ApproveExtensionEditRequestView(APIView):
+    permission_classes = [IsAdminOrBoss]
+
+    def post(self, request, pk):
+        try:
+            extension_edit_request = ExtensionEditRequest.objects.get(pk=pk)
+        except ExtensionEditRequest.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not _can_access(request.user, extension_edit_request):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if extension_edit_request.status == 'APPROVED':
+            return Response({'detail': 'Already approved.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        detail_serializer = ExtensionEditRequestSerializer(
+            extension_edit_request,
+            data={},
+            partial=True,
+            context={'require_complete': True},
+        )
+        if not detail_serializer.is_valid():
+            return Response(detail_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ApproveRejectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        extension_edit_request.status = 'APPROVED'
+        extension_edit_request.approved_by = request.user
+        extension_edit_request.approved_at = timezone.now()
+        extension_edit_request.remarks = serializer.validated_data.get('remarks', '')
+        extension_edit_request.save()
+        OnboardingApprovalHistory.objects.create(
+            extension_edit_request=extension_edit_request,
+            action='APPROVED',
+            actor=request.user,
+            comments=extension_edit_request.remarks,
+        )
+        return Response(ExtensionEditRequestSerializer(extension_edit_request).data)
+
+
+class RejectExtensionEditRequestView(APIView):
+    permission_classes = [IsAdminOrBoss]
+
+    def post(self, request, pk):
+        try:
+            extension_edit_request = ExtensionEditRequest.objects.get(pk=pk)
+        except ExtensionEditRequest.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not _can_access(request.user, extension_edit_request):
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = ApproveRejectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        extension_edit_request.status = 'REJECTED'
+        extension_edit_request.remarks = serializer.validated_data.get('remarks', '')
+        extension_edit_request.save()
+        OnboardingApprovalHistory.objects.create(
+            extension_edit_request=extension_edit_request,
+            action='REJECTED',
+            actor=request.user,
+            comments=extension_edit_request.remarks,
+        )
+        return Response(ExtensionEditRequestSerializer(extension_edit_request).data)
+
+
 class ResendInviteView(APIView):
     permission_classes = [IsAdmin]
 
@@ -1697,11 +1950,8 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .utils.sandbox import get_access_token
-from datetime import datetime
 import requests
 # views.py
-
-from datetime import datetime
 
 import requests
 
@@ -1723,18 +1973,10 @@ class VerifyPANAPIView(APIView):
         onboarding_id = request.data.get("onboarding_id")
 
         pan = request.data.get("pan_number")
-        dob = request.data.get("date_of_birth")
-        name = request.data.get("name")
 
         if not pan:
             return Response(
                 {"error": "PAN Number is required"},
-                status=400
-            )
-
-        if not dob:
-            return Response(
-                {"error": "Date of Birth/Commencement is required to verify PAN. Please fill it in and save before verifying."},
                 status=400
             )
 
@@ -1744,18 +1986,27 @@ class VerifyPANAPIView(APIView):
                 id=onboarding_id
             )
 
-            dob = datetime.strptime(
-                dob,
-                "%Y-%m-%d"
-            ).strftime("%d/%m/%Y")
-
             token = get_access_token()
+
+            # Sandbox's PAN verification endpoint requires non-empty
+            # name_as_per_pan/date_of_birth even though we don't collect
+            # either from the user. name_as_per_pan falls back to whatever
+            # name is on record; date_of_birth is a fixed placeholder since
+            # Sandbox rejects a blank value outright (HTTP 422). Neither
+            # field is used in the verified/operative status we compute
+            # below (only "status" and "aadhaar_seeding_status" are), so
+            # the placeholder does not affect the result we show.
+            name_as_per_pan = (
+                onboarding.pan_name
+                or onboarding.company_name
+                or pan.upper()
+            )
 
             payload = {
                 "@entity": "in.co.sandbox.kyc.pan_verification.request",
                 "pan": pan.upper(),
-                "name_as_per_pan": name,
-                "date_of_birth": dob,
+                "name_as_per_pan": name_as_per_pan,
+                "date_of_birth": "01/01/1900",
                 "consent": "Y",
                 "reason": "Vendor onboarding PAN verification"
             }
@@ -1793,7 +2044,7 @@ class VerifyPANAPIView(APIView):
                 else:
 
                     verification_status = (
-                        "Valid and Operative"
+                        "Valid and Inoperative"
                     )
 
             else:

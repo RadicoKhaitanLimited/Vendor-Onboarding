@@ -14,13 +14,19 @@ def _entity_type_for_onboarding(onboarding):
     if onboarding_code.startswith("C"):
         return "Customer"
 
-    onboarding_type = str(getattr(onboarding, "onboarding_type", "") or "").strip().upper()
+    onboarding_type = str(
+        getattr(onboarding, "onboarding_type", "") or getattr(onboarding, "target_type", "") or ""
+    ).strip().upper()
     if onboarding_type == "VENDOR":
         return "Vendor"
     if onboarding_type == "CUSTOMER":
         return "Customer"
 
     return "Business Partner"
+
+
+def _reference_code_for_onboarding(onboarding):
+    return getattr(onboarding, "onboarding_code", "") or getattr(onboarding, "request_code", "")
 
 
 def send_onboarding_invite(to_email: str, onboarding, token: str):
@@ -65,15 +71,22 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
 
 def send_boss_approval_request(to_email: str, onboarding, employee):
     """Notify an assigned boss and link directly to the protected review screen."""
+    is_extension_edit = hasattr(onboarding, 'request_code')
     approval_url = f"{settings.FRONTEND_URL}/dashboard?approval={onboarding.id}"
+    if is_extension_edit:
+        approval_url += "&approval_kind=extension_edit"
     entity_type = _entity_type_for_onboarding(onboarding)
-    subject = f"Approval required: {entity_type} onboarding {onboarding.onboarding_code}"
+    reference_code = _reference_code_for_onboarding(onboarding)
+    request_label = f"{entity_type} {onboarding.request_type.lower()} request" if is_extension_edit else f"{entity_type} onboarding"
+    subject = f"Approval required: {request_label} {reference_code}"
     html_body = render_to_string(
         "email/boss_approval_request.html",
         {
             "approval_url": approval_url,
             "onboarding": onboarding,
             "entity_type": entity_type,
+            "request_label": request_label,
+            "reference_code": reference_code,
             "employee_name": employee.full_name or employee.email,
             "logo_url": f"{settings.FRONTEND_URL}/radico-logo.png",
         },

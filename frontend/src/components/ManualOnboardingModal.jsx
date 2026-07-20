@@ -63,7 +63,6 @@ const EMPTY_FORM = {
   contact_person:      '',
   emails:              [''],
   phones:              [''],
-  date_of_birth:       '',
   district:            '',
   city:                '',
   state:               '',
@@ -381,7 +380,6 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         street2:             form.street2,
         street3:             form.street3,
         street4:             form.street4,
-        date_of_birth:       form.date_of_birth || null,
         pan_number:          form.pan_number ? form.pan_number.toUpperCase() : '',
         pan_name:            form.pan_name,
         gst_applicable:      form.gst_applicable ?? false,
@@ -616,14 +614,6 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         <div className="card manual-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏛️</div>Tax & Compliance</div>
           <div className="grid-2">
-            <div className="field span-2">
-              <label>Date of Birth/Commencement</label>
-              <input
-                type="date"
-                value={form.date_of_birth}
-                onChange={(e) => set('date_of_birth', e.target.value)}
-              />
-            </div>
             <div className="field span-2">
               <label>PAN Number <span className="req">*</span></label>
               <input type="text" value={form.pan_number}
