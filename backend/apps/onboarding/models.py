@@ -244,7 +244,7 @@ class ExtensionEditRequest(models.Model):
     request_type = models.CharField(max_length=10, choices=REQUEST_TYPE_CHOICES)
     target_type = models.CharField(max_length=10, choices=TARGET_TYPE_CHOICES)
 
-    account_number = models.CharField(max_length=34, blank=True)
+    account_number = models.CharField(max_length=100, blank=True)
     company_name = models.CharField(max_length=255, blank=True)
     remarks_request = models.TextField(blank=True)
 

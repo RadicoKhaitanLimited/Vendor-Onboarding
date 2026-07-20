@@ -1590,24 +1590,28 @@ class DashboardStatsView(APIView):
 
     def get(self, request):
         base = _scoped_qs(request.user)
+        er_base = _scoped_er_qs(request.user)
         try:
             base = _filter_by_created_date(base, request.query_params)
+            er_base = _filter_by_created_date(er_base, request.query_params)
         except ValueError as error:
             return Response(error.args[0], status=status.HTTP_400_BAD_REQUEST)
 
         qs = base
+        er_qs = er_base
         onboarding_type = request.query_params.get('type')
         if onboarding_type:
             qs = qs.filter(onboarding_type=onboarding_type.upper())
+            er_qs = er_qs.filter(target_type=onboarding_type.upper())
 
         stats = {
-            'total':    qs.count(),
-            'pending':  qs.filter(status__in=PENDING_STATUS_FILTER).count(),
-            'approved': qs.filter(status='APPROVED').count(),
-            'rejected': qs.filter(status='REJECTED').count(),
+            'total':    qs.count() + er_qs.count(),
+            'pending':  qs.filter(status__in=PENDING_STATUS_FILTER).count() + er_qs.filter(status__in=PENDING_STATUS_FILTER).count(),
+            'approved': qs.filter(status='APPROVED').count() + er_qs.filter(status='APPROVED').count(),
+            'rejected': qs.filter(status='REJECTED').count() + er_qs.filter(status='REJECTED').count(),
             'msme':     qs.filter(msme_applicable=True).count(),
-            'vendor':   base.filter(onboarding_type='VENDOR').count(),
-            'customer': base.filter(onboarding_type='CUSTOMER').count(),
+            'vendor':   base.filter(onboarding_type='VENDOR').count() + er_base.filter(target_type='VENDOR').count(),
+            'customer': base.filter(onboarding_type='CUSTOMER').count() + er_base.filter(target_type='CUSTOMER').count(),
             'employees': request.user.employees.count() if request.user.role == 'BOSS' else 0,
         }
         return Response(stats)

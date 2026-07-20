@@ -343,12 +343,6 @@ class ExtensionEditRequestSerializer(serializers.ModelSerializer):
     def get_approval_history(self, obj):
         return OnboardingApprovalHistorySerializer(obj.approval_history.select_related('actor').all(), many=True).data
 
-    def validate_account_number(self, value):
-        value = re.sub(r'\s+', '', value or '')
-        if value and not ACCOUNT_NUMBER_RE.match(value):
-            raise serializers.ValidationError('Account number must be 9-34 alphanumeric characters, no spaces.')
-        return value
-
     def validate_bank_account_number(self, value):
         value = re.sub(r'\s+', '', value or '')
         if value and not ACCOUNT_NUMBER_RE.match(value):

@@ -121,10 +121,6 @@ export default function ExtensionEditModal({ onClose, onCreated }) {
   const validate = () => {
     const e = {}
 
-    if (form.account_number.trim() && !isValidAccountNumber(form.account_number)) {
-      e.account_number = 'Account number must be 9-34 alphanumeric characters, no spaces.'
-    }
-
     if (!isCustomer) {
       const bankAccountNumber = form.bank_account_number.trim()
       if (bankAccountNumber && !isValidAccountNumber(bankAccountNumber)) e.bank_account_number = 'Account number must be 9-34 alphanumeric characters, no spaces.'
@@ -270,13 +266,10 @@ export default function ExtensionEditModal({ onClose, onCreated }) {
                   <input
                     type="text"
                     value={form.account_number}
-                    onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
+                    onChange={(e) => set('account_number', e.target.value)}
                     placeholder="Existing SAP account / business partner number"
-                    maxLength={34}
                     style={{ fontFamily: 'var(--mono)' }}
-                    className={errors.account_number ? 'error' : ''}
                   />
-                  {errors.account_number && <span className="field-error">{errors.account_number}</span>}
                 </div>
                 <div className="field span-2">
                   <label>{targetType === 'VENDOR' ? 'Vendor' : 'Customer'} Name</label>
