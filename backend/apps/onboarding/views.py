@@ -718,6 +718,7 @@ BULK_IMPORT_COLUMNS = [
     ('street3', 'Street 3'),
     ('street4', 'Street 4'),
     ('pan_number', 'PAN Number'),
+    ('pan_name', 'PAN Name (required if PAN is Individual/HUF)'),
     ('gst_applicable', 'GST Applicable (Yes/No)'),
     ('gst_number', 'GST Number'),
     ('account_holder_name', 'Account Holder Name'),
@@ -811,6 +812,12 @@ def _row_to_onboarding_data(row, headers, onboarding_type):
                   'street1', 'street2', 'street3', 'street4',
                   'account_holder_name', 'bank_name', 'branch_name', 'account_number']:
         data[field] = _bulk_import_cell(data.get(field))
+
+    data['pan_name'] = (
+        _bulk_import_cell(data.get('pan_name'))
+        if pan_name_is_editable(data['pan_number'])
+        else data['company_name']
+    )
 
     return data
 
