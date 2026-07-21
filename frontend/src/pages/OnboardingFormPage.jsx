@@ -7,6 +7,7 @@ import { MSME_REGISTERED_OPTIONS, formatMsmeOption, normalizeMsmeCode } from '..
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { isPanNameEditable } from '../utils/panName'
 import { useCityPincodeSync } from '../utils/useCityPincodeSync'
+import { sanitizeAddressText, sanitizePlaceName } from '../utils/address'
 import { useIfscVerification } from '../utils/useIfscVerification'
 import { isValidEmail } from '../utils/email'
 import { BANKS } from '../constants/banks'
@@ -585,27 +586,6 @@ export default function OnboardingFormPage() {
               <div className="card-title"><div className="card-title-icon">📍</div>Registered Address</div>
               <div className="grid-2">
                 <div className="field">
-                  <label htmlFor="f-district">District</label>
-                  <input id="f-district" type="text" value={form.district} onChange={(e) => set('district', e.target.value)} placeholder="District" disabled={isReadOnly} className={errors.district ? 'error' : ''} />
-                  {errors.district && <span className="field-error">{errors.district}</span>}
-                </div>
-                <div className="field">
-                  <label htmlFor="f-city">City <span className="req">*</span></label>
-                  <input id="f-city" type="text" value={form.city} onChange={(e) => set('city', e.target.value.replace(/[^a-zA-Z\s]/g, ''))} placeholder="City" disabled={isReadOnly} className={errors.city ? 'error' : ''} />
-                  {errors.city && <span className="field-error">{errors.city}</span>}
-                  {pincodeLookupLoading && (
-                    <span className="field-hint-row"><span className="spinner-mini" aria-hidden="true" />Looking up PIN code…</span>
-                  )}
-                </div>
-                <div className="field">
-                  <label htmlFor="f-state">State <span className="req">*</span></label>
-                  <select id="f-state" value={form.state} onChange={(e) => set('state', e.target.value)} disabled={isReadOnly} className={errors.state ? 'error' : ''}>
-                    <option value="">— Select state —</option>
-                    {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                  {errors.state && <span className="field-error">{errors.state}</span>}
-                </div>
-                <div className="field">
                   <label htmlFor="f-pincode">PIN Code <span className="req">*</span></label>
                   <input id="f-pincode" type="text" value={form.pincode} onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={(e) => { if (e.key === 'Enter') dismissPincodeSuggestions() }} placeholder="6-digit PIN" disabled={isReadOnly} className={errors.pincode ? 'error' : ''} />
                   {errors.pincode && <span className="field-error">{errors.pincode}</span>}
@@ -629,25 +609,46 @@ export default function OnboardingFormPage() {
                   )}
                 </div>
                 <div className="field">
+                  <label htmlFor="f-city">City <span className="req">*</span></label>
+                  <input id="f-city" type="text" value={form.city} onChange={(e) => set('city', sanitizePlaceName(e.target.value))} placeholder="City" disabled={isReadOnly} className={errors.city ? 'error' : ''} />
+                  {errors.city && <span className="field-error">{errors.city}</span>}
+                  {pincodeLookupLoading && (
+                    <span className="field-hint-row"><span className="spinner-mini" aria-hidden="true" />Looking up PIN code…</span>
+                  )}
+                </div>
+                <div className="field">
+                  <label htmlFor="f-state">State <span className="req">*</span></label>
+                  <select id="f-state" value={form.state} onChange={(e) => set('state', e.target.value)} disabled={isReadOnly} className={errors.state ? 'error' : ''}>
+                    <option value="">— Select state —</option>
+                    {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                  {errors.state && <span className="field-error">{errors.state}</span>}
+                </div>
+                <div className="field">
+                  <label htmlFor="f-district">District</label>
+                  <input id="f-district" type="text" value={form.district} onChange={(e) => set('district', sanitizeAddressText(e.target.value))} placeholder="District" disabled={isReadOnly} className={errors.district ? 'error' : ''} />
+                  {errors.district && <span className="field-error">{errors.district}</span>}
+                </div>
+                <div className="field">
                   <label htmlFor="f-country">Country</label>
                   <input id="f-country" type="text" value={form.country} onChange={(e) => set('country', e.target.value)} disabled={isReadOnly} />
                 </div>
                 <div className="field span-2">
                   <label htmlFor="f-street1">Street / House Number <span className="req">*</span></label>
-                  <input id="f-street1" type="text" value={form.street1} onChange={(e) => set('street1', e.target.value)} placeholder="Building / Plot No., Street Name" maxLength={35} disabled={isReadOnly} className={errors.street1 ? 'error' : ''} />
+                  <input id="f-street1" type="text" value={form.street1} onChange={(e) => set('street1', sanitizeAddressText(e.target.value))} placeholder="Building / Plot No., Street Name" maxLength={35} disabled={isReadOnly} className={errors.street1 ? 'error' : ''} />
                   {errors.street1 && <span className="field-error">{errors.street1}</span>}
                 </div>
                 <div className="field span-2">
                   <label htmlFor="f-street2">Street 2</label>
-                  <input id="f-street2" type="text" value={form.street2} onChange={(e) => set('street2', e.target.value)} placeholder="Area or Locality" maxLength={40} disabled={isReadOnly} />
+                  <input id="f-street2" type="text" value={form.street2} onChange={(e) => set('street2', sanitizeAddressText(e.target.value))} placeholder="Area or Locality" maxLength={40} disabled={isReadOnly} />
                 </div>
                 <div className="field span-2">
                   <label htmlFor="f-street3">Street 3</label>
-                  <input id="f-street3" type="text" value={form.street3} onChange={(e) => set('street3', e.target.value)} placeholder="Landmark or Nearby Area (optional)" maxLength={40} disabled={isReadOnly} />
+                  <input id="f-street3" type="text" value={form.street3} onChange={(e) => set('street3', sanitizeAddressText(e.target.value))} placeholder="Landmark or Nearby Area (optional)" maxLength={40} disabled={isReadOnly} />
                 </div>
                 <div className="field span-2">
                   <label htmlFor="f-street4">Street 4</label>
-                  <input id="f-street4" type="text" value={form.street4} onChange={(e) => set('street4', e.target.value)} placeholder="Additional address detail (optional)" maxLength={40} disabled={isReadOnly} />
+                  <input id="f-street4" type="text" value={form.street4} onChange={(e) => set('street4', sanitizeAddressText(e.target.value))} placeholder="Additional address detail (optional)" maxLength={40} disabled={isReadOnly} />
                 </div>
               </div>
             </div>

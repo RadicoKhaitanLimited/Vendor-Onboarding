@@ -25,6 +25,7 @@ import { companyCodeForPurchaseOrg } from '../utils/companyCode'
 import { isValidEmail } from '../utils/email'
 import { isPanNameEditable } from '../utils/panName'
 import { useCityPincodeSync } from '../utils/useCityPincodeSync'
+import { sanitizeAddressText, sanitizePlaceName } from '../utils/address'
 import { useIfscVerification } from '../utils/useIfscVerification'
 import { BANKS } from '../constants/banks'
 
@@ -912,23 +913,6 @@ export default function EditOnboardingModal({
           <div className="card-title"><div className="card-title-icon">📍</div>Registered Address</div>
           <div className="grid-2">
             <div className="field">
-              <label>District</label>
-              <input type="text" value={form.district} onChange={(e) => set('district', e.target.value)} placeholder="District" />
-            </div>
-            <div className="field">
-              <label>City</label>
-              <input type="text" value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="City" />
-              {pincodeLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up PIN code…</span>}
-            </div>
-            <div className="field">
-              <label>State</label>
-              <select value={form.state} onChange={(e) => set('state', e.target.value)} className={errors.state ? 'error' : ''}>
-                <option value="">— Select state —</option>
-                {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
-              </select>
-              {errors.state && <span className="field-error">{errors.state}</span>}
-            </div>
-            <div className="field">
               <label>PIN Code</label>
               <input type="text" value={form.pincode}
                 onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -953,24 +937,41 @@ export default function EditOnboardingModal({
               )}
             </div>
             <div className="field">
+              <label>City</label>
+              <input type="text" value={form.city} onChange={(e) => set('city', sanitizePlaceName(e.target.value))} placeholder="City" />
+              {pincodeLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up PIN code…</span>}
+            </div>
+            <div className="field">
+              <label>State</label>
+              <select value={form.state} onChange={(e) => set('state', e.target.value)} className={errors.state ? 'error' : ''}>
+                <option value="">— Select state —</option>
+                {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
+              </select>
+              {errors.state && <span className="field-error">{errors.state}</span>}
+            </div>
+            <div className="field">
+              <label>District</label>
+              <input type="text" value={form.district} onChange={(e) => set('district', sanitizeAddressText(e.target.value))} placeholder="District" />
+            </div>
+            <div className="field">
               <label>Country</label>
               <input type="text" value={form.country} onChange={(e) => set('country', e.target.value)} />
             </div>
             <div className="field span-2">
               <label>Street / House No.</label>
-              <input type="text" value={form.street1} onChange={(e) => set('street1', e.target.value)} maxLength={35} placeholder="Building / Plot No., Street Name" />
+              <input type="text" value={form.street1} onChange={(e) => set('street1', sanitizeAddressText(e.target.value))} maxLength={35} placeholder="Building / Plot No., Street Name" />
             </div>
             <div className="field">
               <label>Street 2</label>
-              <input type="text" value={form.street2} onChange={(e) => set('street2', e.target.value)} maxLength={40} placeholder="Area or Locality" />
+              <input type="text" value={form.street2} onChange={(e) => set('street2', sanitizeAddressText(e.target.value))} maxLength={40} placeholder="Area or Locality" />
             </div>
             <div className="field">
               <label>Street 3</label>
-              <input type="text" value={form.street3} onChange={(e) => set('street3', e.target.value)} maxLength={40} placeholder="Landmark (optional)" />
+              <input type="text" value={form.street3} onChange={(e) => set('street3', sanitizeAddressText(e.target.value))} maxLength={40} placeholder="Landmark (optional)" />
             </div>
             <div className="field span-2">
               <label>Street 4</label>
-              <input type="text" value={form.street4} onChange={(e) => set('street4', e.target.value)} maxLength={40} placeholder="Additional detail (optional)" />
+              <input type="text" value={form.street4} onChange={(e) => set('street4', sanitizeAddressText(e.target.value))} maxLength={40} placeholder="Additional detail (optional)" />
             </div>
           </div>
         </div>
@@ -1390,8 +1391,6 @@ export default function EditOnboardingModal({
                       <DeliveryPlantSelect
                         value={form.delivery_plant}
                         onChange={(value) => set('delivery_plant', value)}
-                        salesOrganizations={form.sales_organization}
-                        distributionChannel={form.distribution_channel}
                       />
                     </div>
                   </div>

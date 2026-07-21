@@ -336,8 +336,6 @@ export default function ExtensionEditModal({ onClose, onCreated }) {
                           <DeliveryPlantSelect
                             value={form.delivery_plant}
                             onChange={(value) => set('delivery_plant', value)}
-                            salesOrganizations={form.sales_organization}
-                            distributionChannel={form.distribution_channel}
                           />
                         </div>
                       </div>
