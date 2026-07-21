@@ -9,6 +9,7 @@ import { isPanNameEditable } from '../utils/panName'
 import { useCityPincodeSync } from '../utils/useCityPincodeSync'
 import { useIfscVerification } from '../utils/useIfscVerification'
 import { isValidEmail } from '../utils/email'
+import { BANKS } from '../constants/banks'
 
 const STEPS = [
   { id: 1, label: 'Basic Info' },
@@ -24,13 +25,6 @@ const INDIAN_STATES = [
   'Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh',
   'Uttarakhand','West Bengal','Delhi','Jammu & Kashmir','Ladakh','Chandigarh',
   'Puducherry','Andaman & Nicobar Islands','Dadra & Nagar Haveli','Daman & Diu','Lakshadweep',
-]
-
-const BANKS = [
-  'State Bank of India','HDFC Bank','ICICI Bank','Axis Bank','Kotak Mahindra Bank',
-  'Punjab National Bank','Bank of Baroda','Canara Bank','Union Bank of India',
-  'IDFC First Bank','Yes Bank','IndusInd Bank','Federal Bank','UCO Bank',
-  'Indian Bank','Central Bank of India','Bank of India','Other',
 ]
 
 const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/
@@ -764,12 +758,9 @@ export default function OnboardingFormPage() {
                   {errors.account_holder_name && <span className="field-error">{errors.account_holder_name}</span>}
                 </div>
                 <div className="field">
-                  <label htmlFor="f-bank-name">Bank Name <span className="req">*</span></label>
-                  <select id="f-bank-name" value={form.bank_name} onChange={(e) => set('bank_name', e.target.value)} disabled={isReadOnly} className={errors.bank_name ? 'error' : ''}>
-                    <option value="">— Select bank —</option>
-                    {BANKS.map((b) => <option key={b}>{b}</option>)}
-                  </select>
-                  {errors.bank_name && <span className="field-error">{errors.bank_name}</span>}
+                  <label htmlFor="f-account-number">Account Number <span className="req">*</span></label>
+                  <input id="f-account-number" type="text" value={form.account_number} onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))} placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.account_number ? 'error' : ''} />
+                  {errors.account_number && <span className="field-error">{errors.account_number}</span>}
                 </div>
                 <div className="field">
                   <label htmlFor="f-ifsc">IFSC Code <span className="req">*</span></label>
@@ -785,14 +776,17 @@ export default function OnboardingFormPage() {
                   )}
                 </div>
                 <div className="field">
+                  <label htmlFor="f-bank-name">Bank Name <span className="req">*</span></label>
+                  <select id="f-bank-name" value={form.bank_name} onChange={(e) => set('bank_name', e.target.value)} disabled={isReadOnly} className={errors.bank_name ? 'error' : ''}>
+                    <option value="">— Select bank —</option>
+                    {BANKS.map((b) => <option key={b}>{b}</option>)}
+                  </select>
+                  {errors.bank_name && <span className="field-error">{errors.bank_name}</span>}
+                </div>
+                <div className="field">
                   <label htmlFor="f-branch-name">Branch Name <span className="req">*</span></label>
                   <input id="f-branch-name" type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" disabled={isReadOnly} className={errors.branch_name ? 'error' : ''} />
                   {errors.branch_name && <span className="field-error">{errors.branch_name}</span>}
-                </div>
-                <div className="field">
-                  <label htmlFor="f-account-number">Account Number <span className="req">*</span></label>
-                  <input id="f-account-number" type="text" value={form.account_number} onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))} placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} disabled={isReadOnly} className={errors.account_number ? 'error' : ''} />
-                  {errors.account_number && <span className="field-error">{errors.account_number}</span>}
                 </div>
               </div>
             </div>

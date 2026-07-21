@@ -17,17 +17,11 @@ import DeliveryPlantSelect from './DeliveryPlantSelect'
 import VendorReferenceLookupFields from './VendorReferenceLookupFields'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
 import { useIfscVerification } from '../utils/useIfscVerification'
+import { BANKS } from '../constants/banks'
 
 const ACCOUNT_NUMBER_RE = /^[A-Za-z0-9]{9,34}$/
 const isValidAccountNumber = (value) => ACCOUNT_NUMBER_RE.test(value.trim())
 const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/
-
-const BANKS = [
-  'State Bank of India','HDFC Bank','ICICI Bank','Axis Bank','Kotak Mahindra Bank',
-  'Punjab National Bank','Bank of Baroda','Canara Bank','Union Bank of India',
-  'IDFC First Bank','Yes Bank','IndusInd Bank','Federal Bank','UCO Bank',
-  'Indian Bank','Central Bank of India','Bank of India','Other',
-]
 
 const REQUEST_TYPES = [
   { type: 'EXTENSION', label: 'Extension', desc: 'Add a new purchase org / sales area to an existing account', color: 'var(--brand-dark)', bg: 'var(--brand-light)', border: 'rgba(26,86,219,.35)' },
@@ -420,12 +414,17 @@ export default function ExtensionEditModal({ onClose, onCreated }) {
                     {errors.account_holder_name && <span className="field-error">{errors.account_holder_name}</span>}
                   </div>
                   <div className="field">
-                    <label>Bank Name</label>
-                    <select value={form.bank_name} onChange={(e) => set('bank_name', e.target.value)} className={errors.bank_name ? 'error' : ''}>
-                      <option value="">— Select bank —</option>
-                      {BANKS.map((b) => <option key={b}>{b}</option>)}
-                    </select>
-                    {errors.bank_name && <span className="field-error">{errors.bank_name}</span>}
+                    <label>Account Number</label>
+                    <input
+                      type="text"
+                      value={form.bank_account_number}
+                      onChange={(e) => set('bank_account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
+                      placeholder="Account number"
+                      maxLength={34}
+                      style={{ fontFamily: 'var(--mono)' }}
+                      className={errors.bank_account_number ? 'error' : ''}
+                    />
+                    {errors.bank_account_number && <span className="field-error">{errors.bank_account_number}</span>}
                   </div>
                   <div className="field">
                     <label>IFSC Code</label>
@@ -447,22 +446,17 @@ export default function ExtensionEditModal({ onClose, onCreated }) {
                     )}
                   </div>
                   <div className="field">
+                    <label>Bank Name</label>
+                    <select value={form.bank_name} onChange={(e) => set('bank_name', e.target.value)} className={errors.bank_name ? 'error' : ''}>
+                      <option value="">— Select bank —</option>
+                      {BANKS.map((b) => <option key={b}>{b}</option>)}
+                    </select>
+                    {errors.bank_name && <span className="field-error">{errors.bank_name}</span>}
+                  </div>
+                  <div className="field">
                     <label>Branch Name</label>
                     <input type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" className={errors.branch_name ? 'error' : ''} />
                     {errors.branch_name && <span className="field-error">{errors.branch_name}</span>}
-                  </div>
-                  <div className="field">
-                    <label>Account Number</label>
-                    <input
-                      type="text"
-                      value={form.bank_account_number}
-                      onChange={(e) => set('bank_account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
-                      placeholder="Account number"
-                      maxLength={34}
-                      style={{ fontFamily: 'var(--mono)' }}
-                      className={errors.bank_account_number ? 'error' : ''}
-                    />
-                    {errors.bank_account_number && <span className="field-error">{errors.bank_account_number}</span>}
                   </div>
                 </div>
               </div>

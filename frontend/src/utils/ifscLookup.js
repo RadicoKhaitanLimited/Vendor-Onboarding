@@ -6,6 +6,10 @@ function normalizeBankName(name) {
     .trim()
 }
 
+export function normalizeBankNameTokens(name) {
+  return normalizeBankName(name).split(' ').filter(Boolean)
+}
+
 export function bankNamesLikelyMatch(a, b) {
   const normA = normalizeBankName(a)
   const normB = normalizeBankName(b)

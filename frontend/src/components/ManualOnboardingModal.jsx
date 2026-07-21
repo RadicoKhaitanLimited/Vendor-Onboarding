@@ -24,6 +24,7 @@ import { isValidEmail } from '../utils/email'
 import { isPanNameEditable } from '../utils/panName'
 import { useCityPincodeSync } from '../utils/useCityPincodeSync'
 import { useIfscVerification } from '../utils/useIfscVerification'
+import { BANKS } from '../constants/banks'
 
 const INDIAN_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
@@ -32,13 +33,6 @@ const INDIAN_STATES = [
   'Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh',
   'Uttarakhand','West Bengal','Delhi','Jammu & Kashmir','Ladakh','Chandigarh',
   'Puducherry','Andaman & Nicobar Islands','Dadra & Nagar Haveli','Daman & Diu','Lakshadweep',
-]
-
-const BANKS = [
-  'State Bank of India','HDFC Bank','ICICI Bank','Axis Bank','Kotak Mahindra Bank',
-  'Punjab National Bank','Bank of Baroda','Canara Bank','Union Bank of India',
-  'IDFC First Bank','Yes Bank','IndusInd Bank','Federal Bank','UCO Bank',
-  'Indian Bank','Central Bank of India','Bank of India','Other',
 ]
 
 const PAN_RE            = /^[A-Z]{5}[0-9]{4}[A-Z]$/
@@ -687,12 +681,11 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
               {errors.account_holder_name && <span className="field-error">{errors.account_holder_name}</span>}
             </div>
             <div className="field">
-              <label>Bank Name <span className="req">*</span></label>
-              <select value={form.bank_name} onChange={(e) => set('bank_name', e.target.value)} className={errors.bank_name ? 'error' : ''}>
-                <option value="">— Select bank —</option>
-                {BANKS.map((b) => <option key={b}>{b}</option>)}
-              </select>
-              {errors.bank_name && <span className="field-error">{errors.bank_name}</span>}
+              <label>Account Number <span className="req">*</span></label>
+              <input type="text" value={form.account_number}
+                onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
+                placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} className={errors.account_number ? 'error' : ''} />
+              {errors.account_number && <span className="field-error">{errors.account_number}</span>}
             </div>
             <div className="field">
               <label>IFSC Code <span className="req">*</span></label>
@@ -710,16 +703,17 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
               )}
             </div>
             <div className="field">
+              <label>Bank Name <span className="req">*</span></label>
+              <select value={form.bank_name} onChange={(e) => set('bank_name', e.target.value)} className={errors.bank_name ? 'error' : ''}>
+                <option value="">— Select bank —</option>
+                {BANKS.map((b) => <option key={b}>{b}</option>)}
+              </select>
+              {errors.bank_name && <span className="field-error">{errors.bank_name}</span>}
+            </div>
+            <div className="field">
               <label>Branch Name <span className="req">*</span></label>
               <input type="text" value={form.branch_name} onChange={(e) => set('branch_name', e.target.value)} placeholder="Branch" className={errors.branch_name ? 'error' : ''} />
               {errors.branch_name && <span className="field-error">{errors.branch_name}</span>}
-            </div>
-            <div className="field">
-              <label>Account Number <span className="req">*</span></label>
-              <input type="text" value={form.account_number}
-                onChange={(e) => set('account_number', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 34))}
-                placeholder="Account number" maxLength={34} style={{ fontFamily: 'var(--mono)' }} className={errors.account_number ? 'error' : ''} />
-              {errors.account_number && <span className="field-error">{errors.account_number}</span>}
             </div>
           </div>
         </div>
