@@ -18,6 +18,7 @@ import CustomerCompanyCodeSelect from './CustomerCompanyCodeSelect'
 import CustomerSearchTermSelect from './CustomerSearchTermSelect'
 import SalesReferenceOrgSelect from './SalesReferenceOrgSelect'
 import { MSME_REGISTERED_OPTIONS, normalizeMsmeCode } from '../constants/msme'
+import { PAN_APPROVAL_STATUS, classifyPanApprovalStatus } from '../constants/tdsCodes'
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { isTdsMandatoryForGroupCode } from '../constants/vendorReferenceGroups'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
@@ -47,13 +48,6 @@ const ACCOUNT_NUMBER_RE = /^[A-Za-z0-9]{9,34}$/
 const isValidPhone = (value) => PHONE_RE.test(value.trim().replace(/[\s-]/g, ''))
 const isValidAccountNumber = (value) => ACCOUNT_NUMBER_RE.test(value.trim())
 
-const PAN_APPROVAL_STATUS = {
-  PENDING: 'pending',
-  VALID_OPERATIVE: 'valid_operative',
-  VALID_INOPERATIVE: 'valid_inoperative',
-  FAILED: 'failed',
-}
-
 const GST_APPROVAL_STATUS = {
   PENDING: 'pending',
   VALID: 'valid',
@@ -66,14 +60,7 @@ const hasAny = (value, terms) => {
   return terms.some((term) => normalized.includes(term))
 }
 
-const classifyApprovalPanStatus = (record) => {
-  const status = record.pan_verification_status
-  if (!record.pan_number || !status) return PAN_APPROVAL_STATUS.PENDING
-  if (hasAny(status, ['invalid', 'failed', 'failure', 'error', 'no records', 'not found'])) return PAN_APPROVAL_STATUS.FAILED
-  if (hasAny(status, ['inoperative', 'not operative'])) return PAN_APPROVAL_STATUS.VALID_INOPERATIVE
-  if (record.pan_verified || hasAny(status, ['valid'])) return PAN_APPROVAL_STATUS.VALID_OPERATIVE
-  return PAN_APPROVAL_STATUS.FAILED
-}
+const classifyApprovalPanStatus = classifyPanApprovalStatus
 
 const classifyApprovalGstStatus = (record) => {
   if (!record.gst_applicable) return GST_APPROVAL_STATUS.NOT_APPLICABLE
@@ -158,6 +145,12 @@ export default function EditOnboardingModal({
   useState(null)
 
   const isPanInoperative = hasAny(panVerification?.verification_status, ['inoperative', 'not operative'])
+
+  const panApprovalStatus = classifyApprovalPanStatus({
+    pan_number:              data.pan_number,
+    pan_verified:            panVerification?.verified ?? data.pan_verified,
+    pan_verification_status: panVerification?.verification_status ?? data.pan_verification_status,
+  })
 
   const [panLoading, setPanLoading] =
     useState(false)
@@ -1448,7 +1441,7 @@ export default function EditOnboardingModal({
                   TDS Codes
                   {isTdsMandatoryForGroupCode(form.group_code) && <span className="req">*</span>}
                 </label>
-                <TDSCodeSelect value={form.tds_codes} onChange={(value) => set('tds_codes', value)} />
+                <TDSCodeSelect value={form.tds_codes} onChange={(value) => set('tds_codes', value)} panApprovalStatus={panApprovalStatus} />
                 {errors.tds_codes && <span className="field-error">{errors.tds_codes}</span>}
               </div>
             )}

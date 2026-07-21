@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import EditOnboardingModal from './EditOnboardingModal'
 import { formatMsmeOption } from '../constants/msme'
+import { classifyPanApprovalStatus, effectiveTdsCode, isPanApprovalInvalid } from '../constants/tdsCodes'
 
 const STATUS_CLASS = {
   DRAFT: 's-draft', PENDING: 's-pending', PENDING_BOSS_APPROVAL: 's-pending', UNDER_REVIEW: 's-review',
@@ -156,6 +157,14 @@ export default function OnboardingDetailPanel({ id, kind = 'onboarding', onClose
 
   const isExtensionEdit = kind === 'extension_edit'
   const isCustomer = isExtensionEdit ? data?.target_type !== 'VENDOR' : data?.onboarding_type !== 'VENDOR'
+
+  const effectiveTdsCodesDisplay = (() => {
+    if (!data?.tds_codes) return ''
+    const panApprovalStatus = classifyPanApprovalStatus(data)
+    const codes = data.tds_codes.split(',').map((code) => code.trim()).filter(Boolean)
+    const effectiveCodes = codes.map((code) => effectiveTdsCode(code, panApprovalStatus))
+    return isPanApprovalInvalid(panApprovalStatus) ? effectiveCodes.join(', ') : ''
+  })()
 
   const loadData = () => {
     const url = isExtensionEdit ? `/onboarding/extension-edit/${id}/` : `/onboarding/${id}/`
@@ -355,6 +364,10 @@ export default function OnboardingDetailPanel({ id, kind = 'onboarding', onClose
                 <SummaryRow label="GST Status" value={data.gst_verification_status} />
                 {!isCustomer && (
                   <>
+                    <SummaryRow label="TDS Codes (Selected)" value={data.tds_codes} mono />
+                    {effectiveTdsCodesDisplay && (
+                      <SummaryRow label="TDS Codes (Higher rate — PAN invalid/inoperative)" value={effectiveTdsCodesDisplay} mono />
+                    )}
                     <SummaryRow label="Bank" value={data.bank_name} />
                     <SummaryRow label="Branch" value={data.branch_name} />
                     <SummaryRow label="Account No." value={data.account_number} mono />

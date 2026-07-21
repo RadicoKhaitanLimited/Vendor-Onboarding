@@ -429,9 +429,33 @@ def _sap_region_code(state):
     return SAP_REGION_CODES.get(normalized, normalized.upper())
 
 
-def _first_tds_code(value):
-    parts = _first_list_value(value).split()
-    return parts[0].strip() if parts else ''
+TDS_HIGHER_RATE_CODES = {
+    'I1': 'ID',
+    'I2': 'ID',
+    'I3': 'II',
+    'I4': 'IC',
+    'I5': 'IF',
+    'IB': 'IK',
+    'I8': 'IJ',
+    'I9': 'IG',
+    'IA': 'IA',
+    'IQ': 'IH',
+    'IR': 'IS',
+}
+
+
+def _effective_tds_code(tds_code, pan_approval_status):
+    if pan_approval_status in (PAN_APPROVAL_FAILED, PAN_APPROVAL_VALID_INOPERATIVE):
+        return TDS_HIGHER_RATE_CODES.get(tds_code, tds_code)
+    return tds_code
+
+
+def _first_tds_code(onboarding):
+    parts = _first_list_value(onboarding.tds_codes).split()
+    tds_code = parts[0].strip() if parts else ''
+    if not tds_code:
+        return ''
+    return _effective_tds_code(tds_code, _classify_pan_approval_status(onboarding))
 
 
 def _bank_account_main(value):
@@ -521,11 +545,11 @@ class OnboardingExportView(APIView):
         ('ACCOUNTHOLDER', lambda o: o.account_holder_name),
         ('BANKACCOUNTNAME', lambda o: ''),
         ('BP_BANK_GUID', lambda o: ''),
-        ('WITHT(Withholding Tax Type)', lambda o: _first_tds_code(o.tds_codes)),
-        ('WT_SUBJCT(Subject to w/tax)', lambda o: 'X' if _first_tds_code(o.tds_codes) else ''),
-        ('QSREC(Recipient Type)', lambda o: 'OT' if _first_tds_code(o.tds_codes) else ''),
+        ('WITHT(Withholding Tax Type)', lambda o: _first_tds_code(o)),
+        ('WT_SUBJCT(Subject to w/tax)', lambda o: 'X' if _first_tds_code(o) else ''),
+        ('QSREC(Recipient Type)', lambda o: 'OT' if _first_tds_code(o) else ''),
         ('WT_WTSTCD(W/tax identification no.)', lambda o: ''),
-        ('WT_WITHCD(W/Tax Code)', lambda o: _first_tds_code(o.tds_codes)),
+        ('WT_WITHCD(W/Tax Code)', lambda o: _first_tds_code(o)),
         ('WT_EXNR(Exemption Number)', lambda o: ''),
         ('WT_EXRT(Exemption Rate)', lambda o: ''),
         ('WT_EXDF(Exemption Start Date)', lambda o: ''),
