@@ -6,6 +6,7 @@ import FileUploadField from '../components/FileUploadField'
 import { MSME_REGISTERED_OPTIONS, formatMsmeOption, normalizeMsmeCode } from '../constants/msme'
 import { validateGstStateCode } from '../constants/gstStateCodes'
 import { isPanNameEditable } from '../utils/panName'
+import { COMPANY_NAME_SEGMENT_MAX_LENGTH, fullCompanyName, visibleCompanyNameFields } from '../utils/companyName'
 import { useCityPincodeSync } from '../utils/useCityPincodeSync'
 import { sanitizeAddressText, sanitizePlaceName } from '../utils/address'
 import { useIfscVerification } from '../utils/useIfscVerification'
@@ -92,6 +93,9 @@ export default function OnboardingFormPage() {
   // Form state
   const [form, setForm] = useState({
     company_name: '',
+    company_name_2: '',
+    company_name_3: '',
+    company_name_4: '',
     contact_person: '',
     emails: [''],
     phones: [''],
@@ -131,6 +135,9 @@ export default function OnboardingFormPage() {
           setForm((prev) => ({
             ...prev,
             company_name: ob.company_name || '',
+            company_name_2: ob.company_name_2 || '',
+            company_name_3: ob.company_name_3 || '',
+            company_name_4: ob.company_name_4 || '',
             contact_person: ob.contact_person || '',
             emails: ob.emails?.length ? ob.emails : [''],
             phones: ob.phones?.length ? ob.phones : [''],
@@ -144,7 +151,7 @@ export default function OnboardingFormPage() {
             street3: ob.street3 || '',
             street4: ob.street4 || '',
             pan_number: ob.pan_number || '',
-            pan_name: ob.pan_name || ob.company_name || '',
+            pan_name: ob.pan_name || fullCompanyName(ob) || '',
             gst_applicable: ob.gst_applicable != null ? ob.gst_applicable : null,
             gst_number: ob.gst_number || '',
             account_holder_name: ob.account_holder_name || '',
@@ -293,12 +300,15 @@ export default function OnboardingFormPage() {
       const nextTouched = { ...prevTouched, [key]: true }
       setForm((prevForm) => {
         const nextForm = { ...prevForm, [key]: value }
-        if ((key === 'company_name' || key === 'pan_number') && !isPanNameEditable(nextForm.pan_number)) {
-          nextForm.pan_name = nextForm.company_name
-          nextForm.account_holder_name = nextForm.company_name
+        if (
+          (key === 'company_name' || key === 'company_name_2' || key === 'company_name_3' || key === 'company_name_4' || key === 'pan_number')
+          && !isPanNameEditable(nextForm.pan_number)
+        ) {
+          nextForm.pan_name = fullCompanyName(nextForm)
+          nextForm.account_holder_name = fullCompanyName(nextForm)
         } else if (key === 'pan_number' && isPanNameEditable(nextForm.pan_number)) {
           nextForm.pan_name = ''
-          nextForm.account_holder_name = nextForm.company_name
+          nextForm.account_holder_name = fullCompanyName(nextForm)
         }
         setErrors(validateForm(nextForm, files, nextTouched))
         return nextForm
@@ -308,11 +318,8 @@ export default function OnboardingFormPage() {
   }
 
   const {
-    pincodeSuggestions,
     pincodeLookupLoading,
     cityLookupLoading,
-    applyPincodeSuggestion,
-    dismissPincodeSuggestions,
   } = useCityPincodeSync(form.city, form.state, form.pincode, set)
 
   const {
@@ -349,6 +356,9 @@ export default function OnboardingFormPage() {
 
   const buildPayload = () => ({
     company_name: form.company_name,
+    company_name_2: form.company_name_2,
+    company_name_3: form.company_name_3,
+    company_name_4: form.company_name_4,
     contact_person: form.contact_person,
     emails: form.emails.filter(Boolean),
     phones: form.phones.filter(Boolean),
@@ -559,11 +569,24 @@ export default function OnboardingFormPage() {
             <div className="card">
               <div className="card-title"><div className="card-title-icon">🏢</div>Company Information</div>
               <div className="grid-2">
-                <div className="field span-2">
-                  <label htmlFor="f-company-name">{entityType} / Company Name <span className="req">*</span></label>
-                  <input id="f-company-name" type="text" value={form.company_name} onChange={(e) => set('company_name', e.target.value)} placeholder="e.g. Acme Technologies Pvt. Ltd." disabled={isReadOnly} className={errors.company_name ? 'error' : ''} />
-                  {errors.company_name && <span className="field-error">{errors.company_name}</span>}
-                </div>
+                {visibleCompanyNameFields(form).map((field, index) => (
+                  <div className="field span-2" key={field}>
+                    <label htmlFor={`f-${field}`}>
+                      {entityType} / Company Name{index > 0 ? ` ${index + 1}` : ''} {index === 0 && <span className="req">*</span>}
+                    </label>
+                    <input
+                      id={`f-${field}`}
+                      type="text"
+                      value={form[field]}
+                      onChange={(e) => set(field, e.target.value.slice(0, COMPANY_NAME_SEGMENT_MAX_LENGTH))}
+                      placeholder={index === 0 ? 'e.g. Acme Technologies Pvt. Ltd.' : 'Continued name (optional)'}
+                      maxLength={COMPANY_NAME_SEGMENT_MAX_LENGTH}
+                      disabled={isReadOnly}
+                      className={errors[field] ? 'error' : ''}
+                    />
+                    {errors[field] && <span className="field-error">{errors[field]}</span>}
+                  </div>
+                ))}
                 <div className="field span-2">
                   <label htmlFor="f-contact-person">Contact Person</label>
                   <input id="f-contact-person" type="text" value={form.contact_person} onChange={(e) => set('contact_person', e.target.value)} placeholder="Full name (optional)" disabled={isReadOnly} />
@@ -587,25 +610,10 @@ export default function OnboardingFormPage() {
               <div className="grid-2">
                 <div className="field">
                   <label htmlFor="f-pincode">PIN Code <span className="req">*</span></label>
-                  <input id="f-pincode" type="text" value={form.pincode} onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={(e) => { if (e.key === 'Enter') dismissPincodeSuggestions() }} placeholder="6-digit PIN" disabled={isReadOnly} className={errors.pincode ? 'error' : ''} />
+                  <input id="f-pincode" type="text" value={form.pincode} onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit PIN" disabled={isReadOnly} className={errors.pincode ? 'error' : ''} />
                   {errors.pincode && <span className="field-error">{errors.pincode}</span>}
                   {cityLookupLoading && (
                     <span className="field-hint-row"><span className="spinner-mini" aria-hidden="true" />Looking up city…</span>
-                  )}
-                  {pincodeSuggestions.length > 0 && (
-                    <div className="pincode-suggestions">
-                      <div className="pincode-suggestions-head">Multiple PIN codes found for this city — pick one:</div>
-                      {pincodeSuggestions.map((match) => (
-                        <button
-                          type="button"
-                          key={`${match.pincode}-${match.city}`}
-                          onClick={() => applyPincodeSuggestion(match)}
-                          className="pincode-suggestion-btn"
-                        >
-                          {match.pincode} — {match.city}, {match.district}, {match.state}
-                        </button>
-                      ))}
-                    </div>
                   )}
                 </div>
                 <div className="field">
@@ -1000,7 +1008,7 @@ export default function OnboardingFormPage() {
             <div className="card">
               <div className="card-title"><div className="card-title-icon">👁️</div>Review — Basic Info</div>
               <div className="summary-grid">
-                <div className="summary-row"><span className="summary-key">Company Name</span><span className="summary-val">{form.company_name}</span></div>
+                <div className="summary-row"><span className="summary-key">Company Name</span><span className="summary-val">{fullCompanyName(form)}</span></div>
                 <div className="summary-row"><span className="summary-key">Contact Person</span><span className="summary-val">{form.contact_person || '—'}</span></div>
                 <div className="summary-row"><span className="summary-key">Emails</span><span className="summary-val">{form.emails.filter(Boolean).join(', ')}</span></div>
                 <div className="summary-row"><span className="summary-key">Phones</span><span className="summary-val">{form.phones.filter(Boolean).join(', ')}</span></div>

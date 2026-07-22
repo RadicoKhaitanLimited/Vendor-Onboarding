@@ -11,6 +11,7 @@ import BulkImportModal from '../components/BulkImportModal'
 import ExtensionEditModal from '../components/ExtensionEditModal'
 import { formatMsmeOption, normalizeMsmeCode } from '../constants/msme'
 import { isPanNameEditable } from '../utils/panName'
+import { fullCompanyName } from '../utils/companyName'
 
 const STATUS_CLASS = {
   DRAFT: 's-draft', PENDING: 's-pending', PENDING_BOSS_APPROVAL: 's-pending', UNDER_REVIEW: 's-review',
@@ -123,6 +124,7 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState(PENDING_GROUP_FILTER)
   const [typeFilter, setTypeFilter] = useState('')
+  const [panStatusFilter, setPanStatusFilter] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [exporting, setExporting] = useState(false)
@@ -219,6 +221,10 @@ export default function DashboardPage() {
     fetchData()
   }
 
+  const visibleOnboardings = panStatusFilter
+    ? onboardings.filter((o) => o._kind !== 'extension_edit' && classifyPanStatus(o) === panStatusFilter)
+    : onboardings
+
   const isRowSelectable = (o) => {
     if (o._kind === 'extension_edit') return false
     if (user?.role === 'BOSS') return o.status !== 'APPROVED' && o.status !== 'REJECTED'
@@ -237,7 +243,7 @@ export default function DashboardPage() {
   }
 
   const toggleSelectAll = () => {
-    const selectableIds = onboardings.filter(isRowSelectable).map((o) => o.id)
+    const selectableIds = visibleOnboardings.filter(isRowSelectable).map((o) => o.id)
     const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id))
     setSelectedIds(allSelected ? [] : selectableIds)
   }
@@ -569,6 +575,17 @@ export default function DashboardPage() {
                 <option value="APPROVED">Approved</option>
                 <option value="REJECTED">Rejected</option>
               </select>
+              <select
+                className="filter-select"
+                value={panStatusFilter}
+                onChange={(e) => setPanStatusFilter(e.target.value)}
+              >
+                <option value="">All PAN Status</option>
+                <option value={PAN_STATUS.NOT_VERIFIED}>Not Verified</option>
+                <option value={PAN_STATUS.VALID_OPERATIVE}>Valid & Operative</option>
+                <option value={PAN_STATUS.VALID_INOPERATIVE}>Valid & Inoperative</option>
+                <option value={PAN_STATUS.FAILED}>Invalid / Failed</option>
+              </select>
               <label className="date-filter">
                 <span>Created from</span>
                 <input
@@ -643,13 +660,13 @@ export default function DashboardPage() {
               <div className="spinner spinner-dark" />
               <p>Loading registrations…</p>
             </div>
-          ) : onboardings.length === 0 ? (
+          ) : visibleOnboardings.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📋</div>
-              {search || typeFilter || startDate || endDate || statusFilter !== PENDING_GROUP_FILTER ? (
+              {search || typeFilter || startDate || endDate || statusFilter !== PENDING_GROUP_FILTER || panStatusFilter ? (
                 <>
                   <p>No registrations match your filters.</p>
-                  <p className="hint">Try adjusting or clearing the search, type, status, or date filters.</p>
+                  <p className="hint">Try adjusting or clearing the search, type, status, PAN status, or date filters.</p>
                 </>
               ) : (
                 <p>No registrations found.</p>
@@ -669,7 +686,7 @@ export default function DashboardPage() {
                           onChange={toggleSelectAll}
                           checked={
                             selectedIds.length > 0 &&
-                            onboardings.filter(isRowSelectable).every((o) => selectedIds.includes(o.id))
+                            visibleOnboardings.filter(isRowSelectable).every((o) => selectedIds.includes(o.id))
                           }
                         />
                         <span className="row-check-box" />
@@ -691,7 +708,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {onboardings.map((o) => {
+                {visibleOnboardings.map((o) => {
                   const pan = panBadge(o)
                   const gst = gstBadge(o)
                   const selectable = isRowSelectable(o)
@@ -738,7 +755,7 @@ export default function DashboardPage() {
                       </span>
                     </td>
                     <td className="col-bp-name" style={{ fontWeight: o.company_name ? 500 : 400 }}>
-                      {o.company_name || <span style={{ color: 'var(--muted)' }}>—</span>}
+                      {fullCompanyName(o) || <span style={{ color: 'var(--muted)' }}>—</span>}
                     </td>
                     <td className="col-pan">
                       {isExtensionEdit ? (

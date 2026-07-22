@@ -16,6 +16,7 @@ import SalesReferenceOrgSelect from './SalesReferenceOrgSelect'
 import DeliveryPlantSelect from './DeliveryPlantSelect'
 import VendorReferenceLookupFields from './VendorReferenceLookupFields'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
+import { COMPANY_NAME_SEGMENT_MAX_LENGTH, visibleCompanyNameFields } from '../utils/companyName'
 import { useIfscVerification } from '../utils/useIfscVerification'
 import { BANKS } from '../constants/banks'
 
@@ -36,6 +37,9 @@ const TARGET_TYPES = [
 const EMPTY_FORM = {
   account_number:          '',
   company_name:            '',
+  company_name_2:          '',
+  company_name_3:          '',
+  company_name_4:          '',
   remarks_request:         '',
   reference_vendor_code:   '',
   vendor_reference_range:  '',
@@ -141,6 +145,9 @@ export default function ExtensionEditModal({ onClose, onCreated }) {
         target_type:             targetType,
         account_number:          form.account_number.trim(),
         company_name:            form.company_name,
+        company_name_2:          form.company_name_2,
+        company_name_3:          form.company_name_3,
+        company_name_4:          form.company_name_4,
         remarks_request:         form.remarks_request,
         reference_vendor_code:   isCustomer ? '' : form.reference_vendor_code,
         vendor_reference_range:  isCustomer ? '' : form.vendor_reference_range,
@@ -265,10 +272,18 @@ export default function ExtensionEditModal({ onClose, onCreated }) {
                     style={{ fontFamily: 'var(--mono)' }}
                   />
                 </div>
-                <div className="field span-2">
-                  <label>{targetType === 'VENDOR' ? 'Vendor' : 'Customer'} Name</label>
-                  <input type="text" value={form.company_name} onChange={(e) => set('company_name', e.target.value)} placeholder="For reference only" />
-                </div>
+                {visibleCompanyNameFields(form).map((field, index) => (
+                  <div className="field span-2" key={field}>
+                    <label>{targetType === 'VENDOR' ? 'Vendor' : 'Customer'} Name{index > 0 ? ` ${index + 1}` : ''}</label>
+                    <input
+                      type="text"
+                      value={form[field]}
+                      onChange={(e) => set(field, e.target.value.slice(0, COMPANY_NAME_SEGMENT_MAX_LENGTH))}
+                      placeholder={index === 0 ? 'For reference only' : 'Continued name (optional)'}
+                      maxLength={COMPANY_NAME_SEGMENT_MAX_LENGTH}
+                    />
+                  </div>
+                ))}
                 <div className="field span-2">
                   <label>What needs to be {requestType === 'EXTENSION' ? 'extended' : 'edited'}?</label>
                   <textarea
@@ -381,10 +396,7 @@ export default function ExtensionEditModal({ onClose, onCreated }) {
                 {requestType !== 'EXTENSION' && (
                   <div className="field">
                     <label>Payment Terms</label>
-                    <select value={form.payment_terms} onChange={(e) => set('payment_terms', e.target.value)}>
-                      <option value="">— Select —</option>
-                      <PaymentTermsSelect />
-                    </select>
+                    <PaymentTermsSelect value={form.payment_terms} onChange={(value) => set('payment_terms', value)} />
                   </div>
                 )}
                 {!isCustomer && requestType !== 'EXTENSION' && (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../api/axios'
+import SearchableSelect from './SearchableSelect'
 
 export default function DivisionSelect({ value, onChange }) {
   const [divisions, setDivisions] = useState([])
@@ -11,11 +12,6 @@ export default function DivisionSelect({ value, onChange }) {
   }, [])
 
   return (
-    <select value={value} onChange={(event) => onChange(event.target.value)}>
-      <option value="">-- Select --</option>
-      {divisions.map((division) => (
-        <option key={division.value} value={division.value}>{division.label}</option>
-      ))}
-    </select>
+    <SearchableSelect options={divisions} value={value} onChange={onChange} />
   )
 }

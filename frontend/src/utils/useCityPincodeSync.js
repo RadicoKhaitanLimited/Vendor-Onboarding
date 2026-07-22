@@ -4,14 +4,13 @@ import { lookupCityForPincode, lookupPincodesForCity } from './pincodeLookup'
 const DEBOUNCE_MS = 350
 
 export function useCityPincodeSync(city, state, pincode, set) {
-  const [pincodeSuggestions, setPincodeSuggestions] = useState([])
   const [pincodeLookupLoading, setPincodeLookupLoading] = useState(false)
   const [cityLookupLoading, setCityLookupLoading] = useState(false)
 
   // Tracks what the sync itself last wrote, per field, so we can tell an
   // auto-filled value apart from one the user typed — and so clearing the
   // field that produced it can clear the dependent value too.
-  const autoFilled = useRef({ city: null, state: null, pincode: null })
+  const autoFilled = useRef({ city: null, district: null, state: null, pincode: null })
   const pincodeRequestId = useRef(0)
   const cityRequestId = useRef(0)
 
@@ -52,8 +51,6 @@ export function useCityPincodeSync(city, state, pincode, set) {
       return
     }
 
-    setPincodeSuggestions([])
-
     if (!trimmedCity) {
       // City was cleared — clear whatever this sync had derived from it.
       if (autoFilled.current.pincode !== null) {
@@ -82,8 +79,6 @@ export function useCityPincodeSync(city, state, pincode, set) {
         if (matches.length === 1) {
           setAuto('pincode', matches[0].pincode)
           if (!state.trim() || autoFilled.current.state !== null) setAuto('state', matches[0].state)
-        } else if (matches.length > 1) {
-          setPincodeSuggestions(matches)
         }
       } catch {
         // Best-effort lookup; user can still enter the PIN code manually.
@@ -105,15 +100,15 @@ export function useCityPincodeSync(city, state, pincode, set) {
       return
     }
 
-    // Any change to the pincode field — typed, pasted, or picked from the
-    // suggestion list — means the suggestion list is no longer relevant.
-    setPincodeSuggestions([])
-
     if (!trimmedPincode) {
       // Pincode was cleared — clear whatever this sync had derived from it.
       if (autoFilled.current.city !== null) {
         autoFilled.current.city = null
         set('city', '')
+      }
+      if (autoFilled.current.district !== null) {
+        autoFilled.current.district = null
+        set('district', '')
       }
       if (autoFilled.current.state !== null) {
         autoFilled.current.state = null
@@ -135,8 +130,12 @@ export function useCityPincodeSync(city, state, pincode, set) {
         const match = await lookupCityForPincode(trimmedPincode)
         if (requestId !== cityRequestId.current) return
         if (match) {
+          // A 6-digit PIN code uniquely determines city/district/state, so it
+          // is treated as authoritative here and always overwrites whatever
+          // was there before — including a value the user typed themselves.
           setAuto('city', match.city)
-          if (!state.trim() || autoFilled.current.state !== null) setAuto('state', match.state)
+          setAuto('district', match.district)
+          setAuto('state', match.state)
         }
       } catch {
         // Best-effort lookup; user can still enter the city manually.
@@ -149,15 +148,5 @@ export function useCityPincodeSync(city, state, pincode, set) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pincode])
 
-  const applyPincodeSuggestion = (match) => {
-    setAuto('pincode', match.pincode)
-    if (!state.trim() || autoFilled.current.state !== null) setAuto('state', match.state)
-    setPincodeSuggestions([])
-  }
-
-  // Lets the pincode field dismiss the suggestion list on Enter without
-  // waiting for the debounced lookup effect to clear it.
-  const dismissPincodeSuggestions = () => setPincodeSuggestions([])
-
-  return { pincodeSuggestions, pincodeLookupLoading, cityLookupLoading, applyPincodeSuggestion, dismissPincodeSuggestions }
+  return { pincodeLookupLoading, cityLookupLoading }
 }

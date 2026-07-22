@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../api/axios'
+import SearchableSelect from './SearchableSelect'
 
 export default function SearchTermSelect({ value, onChange }) {
   const [searchTerms, setSearchTerms] = useState([])
@@ -11,11 +12,6 @@ export default function SearchTermSelect({ value, onChange }) {
   }, [])
 
   return (
-    <select value={value} onChange={(event) => onChange(event.target.value)}>
-      <option value="">-- Select --</option>
-      {searchTerms.map((searchTerm) => (
-        <option key={searchTerm.value} value={searchTerm.value}>{searchTerm.label}</option>
-      ))}
-    </select>
+    <SearchableSelect options={searchTerms} value={value} onChange={onChange} />
   )
 }

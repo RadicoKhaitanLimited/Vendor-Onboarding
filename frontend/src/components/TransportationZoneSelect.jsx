@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../api/axios'
+import SearchableSelect from './SearchableSelect'
 
 export default function TransportationZoneSelect({ value, onChange }) {
   const [zones, setZones] = useState([])
@@ -11,11 +12,6 @@ export default function TransportationZoneSelect({ value, onChange }) {
   }, [])
 
   return (
-    <select value={value} onChange={(event) => onChange(event.target.value)}>
-      <option value="">-- Select --</option>
-      {zones.map((zone) => (
-        <option key={zone.value} value={zone.value}>{zone.label}</option>
-      ))}
-    </select>
+    <SearchableSelect options={zones} value={value} onChange={onChange} />
   )
 }

@@ -173,6 +173,9 @@ SERVER_EMAIL = DEFAULT_FROM_EMAIL
 # ── Frontend URL ─────────────────────────────────────────────────
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 
+# ── SAP creation notification ───────────────────────────────────
+SAP_CREATION_NOTIFY_EMAIL = config('SAP_CREATION_NOTIFY_EMAIL', default='sharmam@radico.co.in')
+
 # ── Onboarding Token Expiry ──────────────────────────────────────
 ONBOARDING_TOKEN_EXPIRY_HOURS = 72
 

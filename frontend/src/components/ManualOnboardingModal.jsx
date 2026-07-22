@@ -22,6 +22,7 @@ import { isTdsMandatoryForGroupCode } from '../constants/vendorReferenceGroups'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
 import { isValidEmail } from '../utils/email'
 import { isPanNameEditable } from '../utils/panName'
+import { COMPANY_NAME_SEGMENT_MAX_LENGTH, fullCompanyName, visibleCompanyNameFields } from '../utils/companyName'
 import { useCityPincodeSync } from '../utils/useCityPincodeSync'
 import { sanitizeAddressText, sanitizePlaceName } from '../utils/address'
 import { useIfscVerification } from '../utils/useIfscVerification'
@@ -55,6 +56,9 @@ const DOC_TYPES = [
 const EMPTY_FORM = {
   onboarding_type:     '',
   company_name:        '',
+  company_name_2:      '',
+  company_name_3:      '',
+  company_name_4:      '',
   contact_person:      '',
   emails:              [''],
   phones:              [''],
@@ -247,12 +251,15 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
       const nextTouched = { ...prevTouched, [key]: true }
       setForm((prevForm) => {
         const nextForm = { ...prevForm, [key]: value }
-        if ((key === 'company_name' || key === 'pan_number') && !isPanNameEditable(nextForm.pan_number)) {
-          nextForm.pan_name = nextForm.company_name
-          nextForm.account_holder_name = nextForm.company_name
+        if (
+          (key === 'company_name' || key === 'company_name_2' || key === 'company_name_3' || key === 'company_name_4' || key === 'pan_number')
+          && !isPanNameEditable(nextForm.pan_number)
+        ) {
+          nextForm.pan_name = fullCompanyName(nextForm)
+          nextForm.account_holder_name = fullCompanyName(nextForm)
         } else if (key === 'pan_number' && isPanNameEditable(nextForm.pan_number)) {
           nextForm.pan_name = ''
-          nextForm.account_holder_name = nextForm.company_name
+          nextForm.account_holder_name = fullCompanyName(nextForm)
         }
         setErrors(validateForm(nextForm, files, nextTouched))
         return nextForm
@@ -261,11 +268,8 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
     })
   }
   const {
-    pincodeSuggestions,
     pincodeLookupLoading,
     cityLookupLoading,
-    applyPincodeSuggestion,
-    dismissPincodeSuggestions,
   } = useCityPincodeSync(form.city, form.state, form.pincode, set)
 
   const {
@@ -388,6 +392,9 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
       const { data: onboarding } = await api.post('/onboarding/manual/', {
         onboarding_type:     form.onboarding_type,
         company_name:        form.company_name,
+        company_name_2:      form.company_name_2,
+        company_name_3:      form.company_name_3,
+        company_name_4:      form.company_name_4,
         contact_person:      form.contact_person,
         emails:              form.emails.filter(Boolean),
         phones:              form.phones.filter(Boolean),
@@ -535,12 +542,20 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
         <div className="card manual-card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏢</div>Company & Contact</div>
           <div className="grid-2">
-            <div className="field span-2">
-              <label>{entityType || 'Company'} Name <span className="req">*</span></label>
-              <input type="text" value={form.company_name} onChange={(e) => set('company_name', e.target.value)}
-                placeholder="e.g. Acme Technologies Pvt. Ltd." className={errors.company_name ? 'error' : ''} />
-              {errors.company_name && <span className="field-error">{errors.company_name}</span>}
-            </div>
+            {visibleCompanyNameFields(form).map((field, index) => (
+              <div className="field span-2" key={field}>
+                <label>{entityType || 'Company'} Name{index > 0 ? ` ${index + 1}` : ''} {index === 0 && <span className="req">*</span>}</label>
+                <input
+                  type="text"
+                  value={form[field]}
+                  onChange={(e) => set(field, e.target.value.slice(0, COMPANY_NAME_SEGMENT_MAX_LENGTH))}
+                  placeholder={index === 0 ? 'e.g. Acme Technologies Pvt. Ltd.' : 'Continued name (optional)'}
+                  maxLength={COMPANY_NAME_SEGMENT_MAX_LENGTH}
+                  className={errors[field] ? 'error' : ''}
+                />
+                {errors[field] && <span className="field-error">{errors[field]}</span>}
+              </div>
+            ))}
             <div className="field span-2">
               <label>Contact Person</label>
               <input type="text" value={form.contact_person} onChange={(e) => set('contact_person', e.target.value)} placeholder="Full name" />
@@ -567,25 +582,9 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
               <label>PIN Code <span className="req">*</span></label>
               <input type="text" value={form.pincode}
                 onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                onKeyDown={(e) => { if (e.key === 'Enter') dismissPincodeSuggestions() }}
                 placeholder="6-digit PIN" className={errors.pincode ? 'error' : ''} />
               {errors.pincode && <span className="field-error">{errors.pincode}</span>}
               {cityLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up city…</span>}
-              {pincodeSuggestions.length > 0 && (
-                <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', padding: '6px 10px' }}>Multiple PIN codes found for this city — pick one:</div>
-                  {pincodeSuggestions.map((match) => (
-                    <button
-                      type="button"
-                      key={`${match.pincode}-${match.city}`}
-                      onClick={() => applyPincodeSuggestion(match)}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13 }}
-                    >
-                      {match.pincode} — {match.city}, {match.district}, {match.state}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
             <div className="field">
               <label>City <span className="req">*</span></label>
@@ -864,6 +863,8 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                 onReferenceChange={(value) => set('reference_purchase_orgs', value)}
                 openValue={form.purchase_orgs_to_open}
                 onOpenChange={setCreatedPurchaseOrgs}
+                required
+                error={errors.purchase_orgs_to_open}
                 searchTermField={
                   <div className="field">
                     <label>Search Term <span className="req">*</span></label>
@@ -884,15 +885,9 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                 }
               />
             )}
-            {!isCustomer && errors.purchase_orgs_to_open && (
-              <span className="field-error">{errors.purchase_orgs_to_open}</span>
-            )}
             <div className="field">
               <label>Payment Terms <span className="req">*</span></label>
-              <select value={form.payment_terms} onChange={(e) => set('payment_terms', e.target.value)}>
-                <option value="">— Select —</option>
-                <PaymentTermsSelect />
-              </select>
+              <PaymentTermsSelect value={form.payment_terms} onChange={(value) => set('payment_terms', value)} />
               {errors.payment_terms && <span className="field-error">{errors.payment_terms}</span>}
             </div>
             {!isCustomer && (

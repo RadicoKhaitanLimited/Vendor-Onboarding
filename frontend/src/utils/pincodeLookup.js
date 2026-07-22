@@ -14,7 +14,7 @@ export async function lookupCityForPincode(pincode) {
   }
   const [topKey] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]
   const [district, state] = topKey.split('|')
-  return { city: district, state }
+  return { city: district, district, state }
 }
 
 export async function lookupPincodesForCity(city, state) {

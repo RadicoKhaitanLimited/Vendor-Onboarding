@@ -948,7 +948,7 @@ input:read-only, select:disabled { background: var(--bg); color: var(--muted); c
 .registration-filter-bar {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(220px, 1.3fr) minmax(130px, .58fr) minmax(150px, .64fr) minmax(150px, .66fr) minmax(150px, .66fr) minmax(170px, auto);
+  grid-template-columns: minmax(220px, 1.3fr) minmax(130px, .58fr) minmax(130px, .58fr) minmax(150px, .64fr) minmax(150px, .66fr) minmax(150px, .66fr) minmax(170px, auto);
   gap: 12px;
   align-items: end;
 }
@@ -2280,21 +2280,6 @@ th.select-col .row-check-box { border-color: #B9C4D6; }
   width: 11px; height: 11px; border: 2px solid rgba(26,86,219,.2); border-top-color: var(--brand);
   border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0;
 }
-.onboarding-page .pincode-suggestions {
-  margin-top: 6px; border: 1px solid var(--border); border-radius: var(--radius);
-  overflow: hidden; box-shadow: 0 8px 20px rgba(17,24,39,.06);
-}
-.onboarding-page .pincode-suggestions-head {
-  font-size: 12px; color: var(--muted); padding: 8px 10px; background: var(--bg);
-}
-.onboarding-page .pincode-suggestion-btn {
-  display: block; width: 100%; text-align: left; padding: 8px 10px;
-  border: none; border-top: 1px solid var(--border); background: var(--surface);
-  cursor: pointer; font-size: 13px; transition: background-color .15s var(--ease);
-}
-.onboarding-page .pincode-suggestion-btn:hover,
-.onboarding-page .pincode-suggestion-btn:focus-visible { background: var(--brand-light); }
-
 .onboarding-page .doc-empty-note {
   padding: 12px; text-align: center; color: var(--muted); font-size: 13px;
   background: var(--bg); border-radius: var(--radius); border: 1px dashed var(--border-2);

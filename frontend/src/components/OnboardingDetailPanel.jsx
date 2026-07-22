@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext'
 import EditOnboardingModal from './EditOnboardingModal'
 import { formatMsmeOption } from '../constants/msme'
 import { classifyPanApprovalStatus, effectiveTdsCode, isPanApprovalInvalid } from '../constants/tdsCodes'
+import { fullCompanyName } from '../utils/companyName'
 
 const STATUS_CLASS = {
   DRAFT: 's-draft', PENDING: 's-pending', PENDING_BOSS_APPROVAL: 's-pending', UNDER_REVIEW: 's-review',
@@ -197,7 +198,7 @@ export default function OnboardingDetailPanel({ id, kind = 'onboarding', onClose
             <div className="detail-header-info">
               <div className="detail-header-top">
                 <span className="code-chip">{data?.request_code || '…'}</span>
-                {data?.company_name && <h2 className="detail-header-name">{data.company_name}</h2>}
+                {data && fullCompanyName(data) && <h2 className="detail-header-name">{fullCompanyName(data)}</h2>}
               </div>
               <div className="detail-header-badges">
                 <span className={`type-badge ${data?.target_type === 'VENDOR' ? 'type-vendor' : 'type-customer'}`}>
@@ -217,7 +218,7 @@ export default function OnboardingDetailPanel({ id, kind = 'onboarding', onClose
                 <div className="card-title"><div className="card-title-icon">🏢</div>Request Details</div>
                 <div className="summary-grid">
                   <SummaryRow label="Account Number" value={data.account_number} mono />
-                  <SummaryRow label={data.target_type === 'VENDOR' ? 'Vendor Name' : 'Customer Name'} value={data.company_name} />
+                  <SummaryRow label={data.target_type === 'VENDOR' ? 'Vendor Name' : 'Customer Name'} value={fullCompanyName(data)} />
                   <SummaryRow label="Request Type" value={REQUEST_TYPE_LABEL[data.request_type]} />
                   <SummaryRow label="Created On" value={formatDateTime(data.created_at)} />
                   <SummaryRow label="Updated On" value={formatDateTime(data.updated_at)} />
@@ -292,7 +293,7 @@ export default function OnboardingDetailPanel({ id, kind = 'onboarding', onClose
           <div className="detail-header-info">
             <div className="detail-header-top">
               <span className="code-chip">{data?.onboarding_code || '…'}</span>
-              {data?.company_name && <h2 className="detail-header-name">{data.company_name}</h2>}
+              {data && fullCompanyName(data) && <h2 className="detail-header-name">{fullCompanyName(data)}</h2>}
             </div>
             <div className="detail-header-badges">
               <span className={`type-badge ${data?.onboarding_type === 'VENDOR' ? 'type-vendor' : 'type-customer'}`}>
@@ -327,7 +328,7 @@ export default function OnboardingDetailPanel({ id, kind = 'onboarding', onClose
             <div className="card" style={{ marginBottom: '1rem' }}>
               <div className="card-title"><div className="card-title-icon">🏢</div>Company Information</div>
               <div className="summary-grid">
-                <SummaryRow label="Company Name" value={data.company_name} />
+                <SummaryRow label="Company Name" value={fullCompanyName(data)} />
                 <SummaryRow label="Contact Person" value={data.contact_person} />
                 <SummaryRow label="Emails" value={data.emails?.join(', ')} />
                 <SummaryRow label="Phones" value={data.phones?.join(', ')} />
@@ -492,7 +493,7 @@ export default function OnboardingDetailPanel({ id, kind = 'onboarding', onClose
         }}
       >
         <div>
-          <strong>Name:</strong> {data.company_name || '-'}
+          <strong>Name:</strong> {fullCompanyName(data) || '-'}
         </div>
 
         <div>

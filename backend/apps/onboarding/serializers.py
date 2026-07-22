@@ -94,6 +94,10 @@ def pan_name_is_editable(pan_number):
     return len(normalized) >= 4 and normalized[3] in PAN_EDITABLE_HOLDER_TYPES
 
 
+def full_company_name(*parts):
+    return ' '.join(str(part or '').strip() for part in parts if str(part or '').strip())
+
+
 def normalize_purchase_org_list(value):
     if isinstance(value, list):
         raw_values = value
@@ -127,6 +131,7 @@ class OnboardingListSerializer(serializers.ModelSerializer):
         model = Onboarding
         fields = [
             'id', 'onboarding_code', 'onboarding_type', 'company_name',
+            'company_name_2', 'company_name_3', 'company_name_4',
             'contact_person', 'pan_number', 'status', 'msme_status',
             'created_at', 'updated_at', 'created_by_email', 'created_by_name', 'approved_by_email',
             'assigned_boss_email', 'remarks',
@@ -226,7 +231,12 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
 
         pan = current('pan_number', '') or ''
         gst = current('gst_number', '') or ''
-        company_name = current('company_name', '') or ''
+        company_name = full_company_name(
+            current('company_name', ''),
+            current('company_name_2', ''),
+            current('company_name_3', ''),
+            current('company_name_4', ''),
+        )
         if pan:
             if pan_name_is_editable(pan):
                 if self.context.get('require_complete') and not str(current('pan_name', '') or '').strip():
@@ -388,7 +398,8 @@ class ExtensionEditRequestListSerializer(serializers.ModelSerializer):
         model = ExtensionEditRequest
         fields = [
             'id', 'request_code', 'request_type', 'target_type', 'account_number',
-            'company_name', 'status', 'created_at', 'updated_at',
+            'company_name', 'company_name_2', 'company_name_3', 'company_name_4',
+            'status', 'created_at', 'updated_at',
             'created_by_email', 'created_by_name', 'approved_by_email', 'assigned_boss_email', 'remarks',
         ]
 

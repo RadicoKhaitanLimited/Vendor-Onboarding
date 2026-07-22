@@ -24,6 +24,7 @@ import { isTdsMandatoryForGroupCode } from '../constants/vendorReferenceGroups'
 import { companyCodeForPurchaseOrg } from '../utils/companyCode'
 import { isValidEmail } from '../utils/email'
 import { isPanNameEditable } from '../utils/panName'
+import { COMPANY_NAME_SEGMENT_MAX_LENGTH, fullCompanyName, visibleCompanyNameFields } from '../utils/companyName'
 import { useCityPincodeSync } from '../utils/useCityPincodeSync'
 import { sanitizeAddressText, sanitizePlaceName } from '../utils/address'
 import { useIfscVerification } from '../utils/useIfscVerification'
@@ -158,12 +159,14 @@ export default function EditOnboardingModal({
     useState(false)
 
   const [approvalBoss, setApprovalBoss] = useState('')
-  const [sendingToBoss, setSendingToBoss] = useState(false)
   const bossOptions = user?.role === 'EMPLOYEE' ? (user.boss_details || []) : []
 
   // ── form fields ──────────────────────────────────────────────────
   const [form, setForm] = useState({
     company_name:        data.company_name || '',
+    company_name_2:      data.company_name_2 || '',
+    company_name_3:      data.company_name_3 || '',
+    company_name_4:      data.company_name_4 || '',
     contact_person:      data.contact_person || '',
     emails:              data.emails?.length ? [...data.emails] : [''],
     phones:              data.phones?.length ? [...data.phones] : [''],
@@ -177,7 +180,7 @@ export default function EditOnboardingModal({
     street3:             data.street3 || '',
     street4:             data.street4 || '',
     pan_number:          data.pan_number || '',
-    pan_name:            data.pan_name || data.company_name || '',
+    pan_name:            data.pan_name || fullCompanyName(data) || '',
     gst_applicable:      data.gst_applicable != null ? data.gst_applicable : null,
     gst_number:          data.gst_number || '',
     account_holder_name: data.account_holder_name || '',
@@ -266,12 +269,15 @@ export default function EditOnboardingModal({
   const set = (key, value) => {
     setForm((current) => {
       const next = { ...current, [key]: value }
-      if ((key === 'company_name' || key === 'pan_number') && !isPanNameEditable(next.pan_number)) {
-        next.pan_name = next.company_name
-        next.account_holder_name = next.company_name
+      if (
+        (key === 'company_name' || key === 'company_name_2' || key === 'company_name_3' || key === 'company_name_4' || key === 'pan_number')
+        && !isPanNameEditable(next.pan_number)
+      ) {
+        next.pan_name = fullCompanyName(next)
+        next.account_holder_name = fullCompanyName(next)
       } else if (key === 'pan_number' && isPanNameEditable(next.pan_number)) {
         next.pan_name = ''
-        next.account_holder_name = next.company_name
+        next.account_holder_name = fullCompanyName(next)
       }
       if (['state', 'pan_number', 'pan_name', 'gst_applicable', 'gst_number'].includes(key)) {
         const liveErrors = validateLiveTaxFields(next)
@@ -306,11 +312,8 @@ export default function EditOnboardingModal({
     })
   }
   const {
-    pincodeSuggestions,
     pincodeLookupLoading,
     cityLookupLoading,
-    applyPincodeSuggestion,
-    dismissPincodeSuggestions,
   } = useCityPincodeSync(form.city, form.state, form.pincode, set)
 
   const {
@@ -488,10 +491,41 @@ export default function EditOnboardingModal({
   // ── save form fields ─────────────────────────────────────────────
   const handleSave = async () => {
     if (!validate()) return
+
+    if (approvalBoss) {
+      const verificationRecord = {
+        ...data,
+        pan_number: form.pan_number,
+        gst_number: form.gst_number,
+        pan_verified: panVerification?.verified ?? data.pan_verified,
+        pan_verification_status: panVerification?.verification_status ?? data.pan_verification_status,
+        gst_verified: gstVerification?.verified ?? data.gst_verified,
+        gst_verification_status: gstVerification?.verification_status ?? data.gst_verification_status,
+      }
+      const verificationMessages = getApprovalValidationMessages(verificationRecord)
+      if (verificationMessages.length) {
+        toast.error('Cannot send for approval', verificationMessages.join(' '))
+        return
+      }
+
+      const documentTypes = new Set(docDocs.map((document) => document.document_type))
+      const hasRequiredDocuments = documentTypes.has('PAN')
+        && (isCustomer || documentTypes.has('CHEQUE'))
+        && (!form.gst_applicable || documentTypes.has('GST'))
+        && (isCustomer || !form.msme_applicable || documentTypes.has('MSME'))
+      if (!hasRequiredDocuments) {
+        toast.error('Cannot send for approval', 'Upload the required documents before approval.')
+        return
+      }
+    }
+
     setSaving(true)
     try {
       await api.patch(`/onboarding/${data.id}/`, {
         company_name:        form.company_name,
+        company_name_2:      form.company_name_2,
+        company_name_3:      form.company_name_3,
+        company_name_4:      form.company_name_4,
         contact_person:      form.contact_person,
         emails:              form.emails.filter(Boolean),
         phones:              form.phones.filter(Boolean),
@@ -537,7 +571,23 @@ export default function EditOnboardingModal({
         transportation_zone:      isCustomer ? form.transportation_zone : '',
         customer_company_code:    isCustomer ? form.customer_company_code : '',
       })
-      toast.success('Saved', 'Details updated successfully.')
+
+      if (approvalBoss) {
+        try {
+          await api.post(`/onboarding/${data.id}/send-to-boss/`, { approval_boss: approvalBoss })
+          toast.success('Saved & sent for approval', 'Details updated and sent to the approver/manager.')
+          setApprovalBoss('')
+        } catch (err) {
+          const responseData = err.response?.data
+          const validationMessage = responseData && typeof responseData === 'object'
+            ? Object.values(responseData).flat().join(' ')
+            : ''
+          toast.error('Saved, but not sent', validationMessage || responseData?.detail || 'Details were saved but could not be sent for approval.')
+        }
+      } else {
+        toast.success('Saved', 'Details updated successfully.')
+      }
+
       onSaved()
     } catch (err) {
       const errData = err.response?.data
@@ -583,10 +633,16 @@ export default function EditOnboardingModal({
       onSaved()
     } catch (err) {
       const responseData = err.response?.data
-      const approvalError = Array.isArray(responseData?.messages)
-        ? responseData.messages.join(' ')
-        : responseData?.detail
-      toast.error('Failed', approvalError || 'Could not approve.')
+      if (responseData && typeof responseData === 'object' && !responseData.detail) {
+        setErrors((prev) => ({ ...prev, ...responseData }))
+        const fieldErrorMessages = Object.values(responseData).flat().filter(Boolean)
+        toast.error('Cannot approve — required fields are missing', fieldErrorMessages.join(' ') || 'Please complete all mandatory fields before approving.')
+      } else {
+        const approvalError = Array.isArray(responseData?.messages)
+          ? responseData.messages.join(' ')
+          : responseData?.detail
+        toast.error('Failed', approvalError || 'Could not approve.')
+      }
     } finally {
       setActionLoading('')
     }
@@ -620,54 +676,6 @@ export default function EditOnboardingModal({
       toast.error('Failed', err.response?.data?.detail || 'Could not resend.')
     } finally {
       setActionLoading('')
-    }
-  }
-
-  const handleSendToBoss = async () => {
-    if (!approvalBoss) {
-      toast.error('Select approver', 'Please select the approver/manager for approval.')
-      return
-    }
-
-    const verificationRecord = {
-      ...data,
-      pan_number: form.pan_number,
-      gst_number: form.gst_number,
-      pan_verified: panVerification?.verified ?? data.pan_verified,
-      pan_verification_status: panVerification?.verification_status ?? data.pan_verification_status,
-      gst_verified: gstVerification?.verified ?? data.gst_verified,
-      gst_verification_status: gstVerification?.verification_status ?? data.gst_verification_status,
-    }
-    const verificationMessages = getApprovalValidationMessages(verificationRecord)
-    if (verificationMessages.length) {
-      toast.error('Cannot send for approval', verificationMessages.join(' '))
-      return
-    }
-
-    const documentTypes = new Set(docDocs.map((document) => document.document_type))
-    const hasRequiredDocuments = documentTypes.has('PAN')
-      && (isCustomer || documentTypes.has('CHEQUE'))
-      && (!form.gst_applicable || documentTypes.has('GST'))
-      && (isCustomer || !form.msme_applicable || documentTypes.has('MSME'))
-    if (!hasRequiredDocuments) {
-      toast.error('Cannot send for approval', 'Upload the required documents before approval.')
-      return
-    }
-
-    setSendingToBoss(true)
-    try {
-      await api.post(`/onboarding/${data.id}/send-to-boss/`, { approval_boss: approvalBoss })
-      toast.success('Sent for approval', 'Request has been sent to the approver/manager.')
-      setApprovalBoss('')
-      onSaved()
-    } catch (err) {
-      const responseData = err.response?.data
-      const validationMessage = responseData && typeof responseData === 'object'
-        ? Object.values(responseData).flat().join(' ')
-        : ''
-      toast.error('Failed', validationMessage || responseData?.detail || 'Could not send request for approval.')
-    } finally {
-      setSendingToBoss(false)
     }
   }
 
@@ -901,12 +909,20 @@ export default function EditOnboardingModal({
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="card-title"><div className="card-title-icon">🏢</div>Company & Contact</div>
           <div className="grid-2">
-            <div className="field span-2">
-              <label>{entityType} / Company Name <span className="req">*</span></label>
-              <input type="text" value={form.company_name} onChange={(e) => set('company_name', e.target.value)}
-                placeholder="e.g. Acme Technologies Pvt. Ltd." className={errors.company_name ? 'error' : ''} />
-              {errors.company_name && <span className="field-error">{errors.company_name}</span>}
-            </div>
+            {visibleCompanyNameFields(form).map((field, index) => (
+              <div className="field span-2" key={field}>
+                <label>{entityType} / Company Name{index > 0 ? ` ${index + 1}` : ''} {index === 0 && <span className="req">*</span>}</label>
+                <input
+                  type="text"
+                  value={form[field]}
+                  onChange={(e) => set(field, e.target.value.slice(0, COMPANY_NAME_SEGMENT_MAX_LENGTH))}
+                  placeholder={index === 0 ? 'e.g. Acme Technologies Pvt. Ltd.' : 'Continued name (optional)'}
+                  maxLength={COMPANY_NAME_SEGMENT_MAX_LENGTH}
+                  className={errors[field] ? 'error' : ''}
+                />
+                {errors[field] && <span className="field-error">{errors[field]}</span>}
+              </div>
+            ))}
             <div className="field span-2">
               <label>Contact Person</label>
               <input type="text" value={form.contact_person} onChange={(e) => set('contact_person', e.target.value)} placeholder="Full name" />
@@ -937,25 +953,9 @@ export default function EditOnboardingModal({
               <label>PIN Code</label>
               <input type="text" value={form.pincode}
                 onChange={(e) => set('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                onKeyDown={(e) => { if (e.key === 'Enter') dismissPincodeSuggestions() }}
                 placeholder="6-digit PIN" className={errors.pincode ? 'error' : ''} />
               {errors.pincode && <span className="field-error">{errors.pincode}</span>}
               {cityLookupLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Looking up city…</span>}
-              {pincodeSuggestions.length > 0 && (
-                <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', padding: '6px 10px' }}>Multiple PIN codes found for this city — pick one:</div>
-                  {pincodeSuggestions.map((match) => (
-                    <button
-                      type="button"
-                      key={`${match.pincode}-${match.city}`}
-                      onClick={() => applyPincodeSuggestion(match)}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', border: 'none', borderTop: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13 }}
-                    >
-                      {match.pincode} — {match.city}, {match.district}, {match.state}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
             <div className="field">
               <label>City</label>
@@ -1442,6 +1442,8 @@ export default function EditOnboardingModal({
                 onReferenceChange={(value) => set('reference_purchase_orgs', value)}
                 openValue={form.purchase_orgs_to_open}
                 onOpenChange={setCreatedPurchaseOrgs}
+                required
+                error={errors.purchase_orgs_to_open}
                 searchTermField={
                   <div className="field">
                     <label>Search Term <span className="req">*</span></label>
@@ -1462,15 +1464,9 @@ export default function EditOnboardingModal({
                 }
               />
             )}
-            {!isCustomer && errors.purchase_orgs_to_open && (
-              <span className="field-error">{errors.purchase_orgs_to_open}</span>
-            )}
             <div className="field">
               <label>Payment Terms <span className="req">*</span></label>
-              <select value={form.payment_terms} onChange={(e) => set('payment_terms', e.target.value)}>
-                <option value="">— Select —</option>
-                <PaymentTermsSelect />
-              </select>
+              <PaymentTermsSelect value={form.payment_terms} onChange={(value) => set('payment_terms', value)} />
               {errors.payment_terms && <span className="field-error">{errors.payment_terms}</span>}
             </div>
             {!isCustomer && (
@@ -1673,17 +1669,15 @@ export default function EditOnboardingModal({
           <div className="card" style={{ marginBottom: '1rem' }}>
             <div className="card-title"><div className="card-title-icon">✓</div>Send For Approver/Manager Approval</div>
             <div className="field" style={{ marginBottom: '1rem' }}>
-              <label>Select Approver/Manager <span className="req">*</span></label>
+              <label>Select Approver/Manager</label>
               <select value={approvalBoss} onChange={(e) => setApprovalBoss(e.target.value)}>
                 <option value="">Select approver/manager</option>
                 {bossOptions.map((boss) => (
                   <option key={boss.id} value={boss.id}>{boss.full_name || boss.email}</option>
                 ))}
               </select>
+              <span className="hint">Selecting an approver here and clicking Save Changes will save your edits and send this request for approval in one step.</span>
             </div>
-            <button className="btn btn-primary" onClick={handleSendToBoss} disabled={sendingToBoss}>
-              {sendingToBoss ? <><div className="spinner" /> Sending...</> : 'Send to Approver/Manager'}
-            </button>
           </div>
         )}
 

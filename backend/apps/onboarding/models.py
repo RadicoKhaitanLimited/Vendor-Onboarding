@@ -89,7 +89,10 @@ class Onboarding(models.Model):
     onboarding_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
 
     # Company
-    company_name = models.CharField(max_length=255, blank=True)
+    company_name = models.CharField(max_length=40, blank=True)
+    company_name_2 = models.CharField(max_length=40, blank=True)
+    company_name_3 = models.CharField(max_length=40, blank=True)
+    company_name_4 = models.CharField(max_length=40, blank=True)
     contact_person = models.CharField(max_length=255, blank=True)
     emails = models.JSONField(default=list)
     phones = models.JSONField(default=list)
@@ -245,7 +248,10 @@ class ExtensionEditRequest(models.Model):
     target_type = models.CharField(max_length=10, choices=TARGET_TYPE_CHOICES)
 
     account_number = models.CharField(max_length=100, blank=True)
-    company_name = models.CharField(max_length=255, blank=True)
+    company_name = models.CharField(max_length=40, blank=True)
+    company_name_2 = models.CharField(max_length=40, blank=True)
+    company_name_3 = models.CharField(max_length=40, blank=True)
+    company_name_4 = models.CharField(max_length=40, blank=True)
     remarks_request = models.TextField(blank=True)
 
     # Vendor SAP / ERP reference fields

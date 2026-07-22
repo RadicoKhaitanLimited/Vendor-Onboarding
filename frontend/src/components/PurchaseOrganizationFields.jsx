@@ -16,6 +16,8 @@ export default function PurchaseOrganizationFields({
   searchTermField,
   companyCodeField,
   createdLabel = 'Purchase Org. in which to be Created',
+  required = false,
+  error = '',
 }) {
   const [organizations, setOrganizations] = useState([])
   const selectedCreatedValues = splitPurchaseOrgValue(openValue)
@@ -30,13 +32,14 @@ export default function PurchaseOrganizationFields({
   return (
     <>
       <div className="field">
-        <label>{createdLabel}</label>
+        <label>{createdLabel} {required && <span className="req">*</span>}</label>
         <MultiSelectDropdown
           options={organizations}
           value={selectedCreatedValues}
           onChange={onOpenChange}
           placeholder="-- Select purchase org(s) --"
         />
+        {error && <span className="field-error">{error}</span>}
       </div>
       {searchTermField}
       {companyCodeField}

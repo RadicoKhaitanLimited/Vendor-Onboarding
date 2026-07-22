@@ -69,6 +69,29 @@ def send_onboarding_invite(to_email: str, onboarding, token: str):
     logger.info("Email sent successfully")
 
 
+def send_sap_creation_request(onboarding):
+    """Notify the SAP team once an onboarding has been approved, so the vendor/customer master can be created."""
+    entity_type = _entity_type_for_onboarding(onboarding)
+    reference_code = _reference_code_for_onboarding(onboarding)
+    subject = f"Create {entity_type} in SAP - {reference_code}"
+    record_url = f"{settings.FRONTEND_URL}/dashboard?approval={onboarding.id}"
+
+    html_body = render_to_string(
+        "email/sap_creation_request.html",
+        {
+            "onboarding": onboarding,
+            "entity_type": entity_type,
+            "reference_code": reference_code,
+            "record_url": record_url,
+            "logo_url": f"{settings.FRONTEND_URL}/radico-logo.png",
+        },
+    )
+
+    to_email = settings.SAP_CREATION_NOTIFY_EMAIL
+    logger.info("Sending SAP creation request to %s", to_email)
+    send_graph_email(to_email=to_email, subject=subject, html=html_body)
+
+
 def send_boss_approval_request(to_email: str, onboarding, employee):
     """Notify an assigned boss and link directly to the protected review screen."""
     is_extension_edit = hasattr(onboarding, 'request_code')

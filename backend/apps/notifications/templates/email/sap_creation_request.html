@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<body style="margin:0;padding:32px 16px;background:#f3f4f6;font-family:Segoe UI,Arial,sans-serif;color:#111827;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <tr><td style="background:#111827;padding:28px;text-align:center;border-bottom:3px solid #c9a84c;">
+          <img src="{{ logo_url }}" alt="Radico Khaitan" width="180" style="max-width:180px;height:auto;" />
+        </td></tr>
+        <tr><td style="padding:36px 42px;">
+          <h2 style="margin:0 0 16px;font-size:22px;">{{ entity_type }} approved &mdash; SAP creation required</h2>
+          <p style="margin:0 0 16px;line-height:1.6;">The following {{ entity_type|lower }} has been approved and is ready to be created in SAP.</p>
+          <a href="{{ record_url }}" style="display:block;margin:20px 0;background:#fffbeb;border:1px solid #e7c76a;border-radius:8px;text-decoration:none;color:inherit;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style="padding:16px 20px;">
+              <strong style="color:#111827;">{{ onboarding.company_name }}</strong><br>
+              <span style="color:#6b7280;font-size:13px;">Reference: {{ reference_code }}</span>
+            </td></tr></table>
+          </a>
+          <p style="margin:0 0 16px;color:#6b7280;font-size:12px;line-height:1.6;">Please create the {{ entity_type|lower }} master record in SAP for this reference.</p>
+          <p style="margin:0;text-align:center;">
+            <a href="{{ record_url }}" style="display:inline-block;padding:14px 30px;background:#c9a84c;border:1px solid #8a6820;border-radius:8px;color:#111827;font-weight:700;text-decoration:none;">View {{ entity_type }} &rarr;</a>
+          </p>
+          <p style="margin:16px 0 0;color:#6b7280;font-size:12px;line-height:1.6;">You'll be asked to sign in if you aren't already.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

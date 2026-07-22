@@ -26,7 +26,7 @@ from .serializers import (
     ExtensionEditRequestListSerializer,
 )
 from apps.accounts.models import User
-from apps.notifications.email_service import send_boss_approval_request, send_onboarding_invite
+from apps.notifications.email_service import send_boss_approval_request, send_onboarding_invite, send_sap_creation_request
 from config import settings
 
 
@@ -43,6 +43,17 @@ def _notify_boss_of_approval_request(onboarding, boss, employee):
             'Could not send approval notification for onboarding %s to %s',
             onboarding.id,
             boss.email,
+        )
+
+
+def _notify_sap_team_of_approval(onboarding):
+    """Email notification failures must not undo a successful approval."""
+    try:
+        send_sap_creation_request(onboarding)
+    except Exception:
+        logger.exception(
+            'Could not send SAP creation request for onboarding %s',
+            onboarding.id,
         )
 
 
@@ -375,6 +386,9 @@ class OnboardingListView(APIView):
         if search:
             qs = qs.filter(
                 Q(company_name__icontains=search) |
+                Q(company_name_2__icontains=search) |
+                Q(company_name_3__icontains=search) |
+                Q(company_name_4__icontains=search) |
                 Q(onboarding_code__icontains=search) |
                 Q(pan_number__icontains=search) |
                 Q(contact_person__icontains=search)
@@ -1048,7 +1062,7 @@ class ApproveOnboardingView(APIView):
             onboarding,
             data={},
             partial=True,
-            context={'require_complete': True},
+            context={'require_complete': True, 'require_sap_reference': True},
         )
         if not detail_serializer.is_valid():
             return Response(detail_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1070,6 +1084,7 @@ class ApproveOnboardingView(APIView):
             actor=request.user,
             comments=onboarding.remarks,
         )
+        _notify_sap_team_of_approval(onboarding)
         return Response(OnboardingDetailSerializer(onboarding).data)
 
 
@@ -1111,7 +1126,7 @@ class BulkApproveOnboardingView(APIView):
                 onboarding,
                 data={},
                 partial=True,
-                context={'require_complete': True},
+                context={'require_complete': True, 'require_sap_reference': True},
             )
             if not detail_serializer.is_valid():
                 failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': detail_serializer.errors})
@@ -1132,6 +1147,7 @@ class BulkApproveOnboardingView(APIView):
                 actor=request.user,
                 comments=remarks,
             )
+            _notify_sap_team_of_approval(onboarding)
             approved.append(str(onboarding.id))
 
         return Response({
@@ -1195,7 +1211,7 @@ class SendToBossView(APIView):
             onboarding,
             data={},
             partial=True,
-            context={'require_complete': True},
+            context={'require_complete': True, 'require_sap_reference': True},
         )
         if not detail_serializer.is_valid():
             return Response(detail_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1259,7 +1275,7 @@ class BulkSendToBossView(APIView):
                 onboarding,
                 data={},
                 partial=True,
-                context={'require_complete': True},
+                context={'require_complete': True, 'require_sap_reference': True},
             )
             if not detail_serializer.is_valid():
                 failed.append({'id': onboarding_id, 'company_name': onboarding.company_name, 'errors': detail_serializer.errors})
@@ -1348,6 +1364,9 @@ class ExtensionEditRequestListView(APIView):
         if search:
             qs = qs.filter(
                 Q(company_name__icontains=search) |
+                Q(company_name_2__icontains=search) |
+                Q(company_name_3__icontains=search) |
+                Q(company_name_4__icontains=search) |
                 Q(request_code__icontains=search) |
                 Q(account_number__icontains=search)
             )

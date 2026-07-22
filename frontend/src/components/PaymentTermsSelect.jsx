@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import api from '../api/axios'
+import SearchableSelect from './SearchableSelect'
 
-export default function PaymentTermsSelect() {
+export default function PaymentTermsSelect({ value, onChange }) {
   const [terms, setTerms] = useState([])
 
   useEffect(() => {
@@ -11,10 +12,6 @@ export default function PaymentTermsSelect() {
   }, [])
 
   return (
-    <>
-      {terms.map((term) => (
-        <option key={term.value} value={term.value}>{term.label}</option>
-      ))}
-    </>
+    <SearchableSelect options={terms} value={value} onChange={onChange} />
   )
 }
