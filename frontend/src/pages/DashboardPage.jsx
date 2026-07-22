@@ -10,6 +10,7 @@ import ManualOnboardingModal from '../components/ManualOnboardingModal'
 import BulkImportModal from '../components/BulkImportModal'
 import ExtensionEditModal from '../components/ExtensionEditModal'
 import { formatMsmeOption, normalizeMsmeCode } from '../constants/msme'
+import { isPanNameEditable } from '../utils/panName'
 
 const STATUS_CLASS = {
   DRAFT: 's-draft', PENDING: 's-pending', PENDING_BOSS_APPROVAL: 's-pending', UNDER_REVIEW: 's-review',
@@ -96,8 +97,9 @@ const getVerificationRowClass = (onboarding) => {
 
 const panBadge = (onboarding) => {
   const status = classifyPanStatus(onboarding)
+  const checksAadhaar = isPanNameEditable(onboarding.pan_number)
   if (status === PAN_STATUS.NOT_VERIFIED) return { label: 'Not Verified', className: 'badge-warning' }
-  if (status === PAN_STATUS.VALID_OPERATIVE) return { label: 'Valid & Operative', className: 'badge-success' }
+  if (status === PAN_STATUS.VALID_OPERATIVE) return { label: checksAadhaar ? 'Valid & Operative' : 'Valid', className: 'badge-success' }
   if (status === PAN_STATUS.VALID_INOPERATIVE) return { label: 'Valid & Inoperative', className: 'badge-warning' }
   return { label: 'Invalid / Failed', className: 'badge-danger' }
 }
@@ -658,7 +660,7 @@ export default function DashboardPage() {
               <thead>
                 <tr>
                   {(user?.role === 'EMPLOYEE' || user?.role === 'BOSS') && (
-                    <th className="select-col">
+                    <th className="select-col" rowSpan={2}>
                       <label className="row-check">
                         <input
                           type="checkbox"
@@ -674,16 +676,18 @@ export default function DashboardPage() {
                       </label>
                     </th>
                   )}
-                  <th>Code</th>
-                  <th>Type</th>
-                  <th>Company Name</th>
-                  <th>PAN</th>
-                  <th>PAN Verification</th>
-                  <th>GST Verification</th>
-                  <th>MSME</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Export</th>
+                  <th className="col-request-id" rowSpan={2}>Request ID</th>
+                  <th className="col-bp-type" rowSpan={2}>Business Partner Type</th>
+                  <th className="col-bp-name" rowSpan={2}>Business Partner Name</th>
+                  <th className="col-verification-group" colSpan={3}>Verification Details</th>
+                  <th className="col-status" rowSpan={2}>Request Status</th>
+                  <th className="col-requestor" rowSpan={2}>Requestor Details / Creation Date</th>
+                  <th className="col-export" rowSpan={2}>Export Data</th>
+                </tr>
+                <tr>
+                  <th className="col-pan verification-subhead">PAN</th>
+                  <th className="col-gst verification-subhead">GST</th>
+                  <th className="col-msme verification-subhead">MSME</th>
                 </tr>
               </thead>
               <tbody>
@@ -726,35 +730,44 @@ export default function DashboardPage() {
                         </label>
                       </td>
                     )}
-                    <td><span className="code-chip">{o.onboarding_code}</span></td>
-                    <td>
+                    <td className="col-request-id"><span className="code-chip">{o.onboarding_code}</span></td>
+                    <td className="col-bp-type">
                       <span className={`type-badge ${o.onboarding_type === 'VENDOR' ? 'type-vendor' : 'type-customer'}`}>
                         {o.onboarding_type === 'VENDOR' ? 'Vendor' : 'Customer'}
                         {isExtensionEdit ? ` ${REQUEST_TYPE_LABEL[o.request_type] || ''}` : ''}
                       </span>
                     </td>
-                    <td style={{ fontWeight: o.company_name ? 500 : 400 }}>
+                    <td className="col-bp-name" style={{ fontWeight: o.company_name ? 500 : 400 }}>
                       {o.company_name || <span style={{ color: 'var(--muted)' }}>—</span>}
                     </td>
-                    <td>
-                      {!isExtensionEdit && o.pan_number
-                        ? <span style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{o.pan_number}</span>
-                        : <span style={{ color: 'var(--muted)' }}>—</span>
-                      }
+                    <td className="col-pan">
+                      {isExtensionEdit ? (
+                        <span style={{ color: 'var(--muted)' }}>—</span>
+                      ) : (
+                        <div className="cell-stack">
+                          {o.pan_number && (
+                            <span className="cell-mono">{o.pan_number}</span>
+                          )}
+                          <span className={`badge ${pan.className}`}>{pan.label}</span>
+                          {o.pan_category && (
+                            <span className="badge badge-category">{o.pan_category}</span>
+                          )}
+                        </div>
+                      )}
                     </td>
-                    <td>
-                      {isExtensionEdit
-                        ? <span style={{ color: 'var(--muted)' }}>—</span>
-                        : <span className={`badge ${pan.className}`}>{pan.label}</span>
-                      }
+                    <td className="col-gst">
+                      {isExtensionEdit ? (
+                        <span style={{ color: 'var(--muted)' }}>—</span>
+                      ) : (
+                        <div className="cell-stack">
+                          {o.gst_number && (
+                            <span className="cell-mono">{o.gst_number}</span>
+                          )}
+                          <span className={`badge ${gst.className}`}>{gst.label}</span>
+                        </div>
+                      )}
                     </td>
-                    <td>
-                      {isExtensionEdit
-                        ? <span style={{ color: 'var(--muted)' }}>—</span>
-                        : <span className={`badge ${gst.className}`}>{gst.label}</span>
-                      }
-                    </td>
-                    <td>
+                    <td className="col-msme">
                       {isExtensionEdit
                         ? <span style={{ color: 'var(--muted)' }}>—</span>
                         : normalizeMsmeCode(o.msme_status) === 'MNA'
@@ -762,15 +775,23 @@ export default function DashboardPage() {
                           : <span className="badge badge-success">{formatMsmeOption(o.msme_status)}</span>
                       }
                     </td>
-                    <td>
+                    <td className="col-status">
                       <span className={`status-pill ${STATUS_CLASS[o.status] || 's-draft'}`}>
                         {STATUS_LABEL[o.status] || o.status}
                       </span>
                     </td>
-                    <td style={{ color: 'var(--muted)', fontSize: 12 }}>
-                      {new Date(o.created_at).toLocaleDateString('en-IN')}
+                    <td className="col-requestor">
+                      {o.created_by_email || o.created_by_name ? (
+                        <div className="cell-stack">
+                          {o.created_by_name && <span className="cell-name">{o.created_by_name}</span>}
+                          <span className="cell-subtext">{o.created_by_email}</span>
+                          <span className="cell-subtext">{new Date(o.created_at).toLocaleDateString('en-IN')}</span>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--muted)' }}>—</span>
+                      )}
                     </td>
-                    <td>
+                    <td className="col-export">
                       <button
                         type="button"
                         className="btn-icon row-export-btn"

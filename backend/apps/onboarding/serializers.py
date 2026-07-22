@@ -117,20 +117,22 @@ def company_code_for_purchase_org(purchase_org):
 
 class OnboardingListSerializer(serializers.ModelSerializer):
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
     approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True)
     assigned_boss_email = serializers.SerializerMethodField()
     document_count = serializers.SerializerMethodField()
+    pan_category = serializers.SerializerMethodField()
 
     class Meta:
         model = Onboarding
         fields = [
             'id', 'onboarding_code', 'onboarding_type', 'company_name',
             'contact_person', 'pan_number', 'status', 'msme_status',
-            'created_at', 'updated_at', 'created_by_email', 'approved_by_email',
+            'created_at', 'updated_at', 'created_by_email', 'created_by_name', 'approved_by_email',
             'assigned_boss_email', 'remarks',
             'document_count','date_of_birth', "pan_verified",
-            "pan_verification_status",
-            "gst_number", "gst_verified", "gst_verification_status",
+            "pan_verification_status", "pan_category",
+            "gst_applicable", "gst_number", "gst_verified", "gst_verification_status",
 
         ]
 
@@ -141,6 +143,10 @@ class OnboardingListSerializer(serializers.ModelSerializer):
         if obj.assigned_user and obj.assigned_user.role == 'BOSS':
             return obj.assigned_user.email
         return ''
+
+    def get_pan_category(self, obj):
+        response = obj.pan_verification_response or {}
+        return response.get('data', {}).get('category', '')
 
 
 class OnboardingDetailSerializer(serializers.ModelSerializer):
@@ -296,6 +302,40 @@ class OnboardingDetailSerializer(serializers.ModelSerializer):
                 if group_code.upper() in TDS_MANDATORY_GROUP_CODES and not str(current('tds_codes', '') or '').strip():
                     errors['tds_codes'] = [f'TDS Codes is mandatory for vendor reference group "{group_code}".']
 
+            if self.context.get('require_sap_reference'):
+                if not is_customer:
+                    if not str(current('reference_vendor_code', '') or '').strip():
+                        errors['reference_vendor_code'] = ['Business Partner Number is required.']
+                    if not str(current('purchase_orgs_to_open', '') or '').strip():
+                        errors['purchase_orgs_to_open'] = ['Purchase Org. is required.']
+                    if not str(current('search_term', '') or '').strip():
+                        errors['search_term'] = ['Search Term is required.']
+                    if not str(current('company_code_to_open', '') or '').strip():
+                        errors['company_code_to_open'] = ['Company Code is required.']
+                    if not str(current('payment_terms', '') or '').strip():
+                        errors['payment_terms'] = ['Payment Terms is required.']
+                    if not str(current('tds_codes', '') or '').strip() and 'tds_codes' not in errors:
+                        errors['tds_codes'] = ['TDS Codes is required.']
+                else:
+                    if not (current('sales_reference_orgs', []) or []):
+                        errors['sales_reference_orgs'] = ['Sales Reference Org is required.']
+                    if not str(current('customer_search_term', '') or '').strip():
+                        errors['customer_search_term'] = ['Search Term is required.']
+                    if not str(current('customer_company_code', '') or '').strip():
+                        errors['customer_company_code'] = ['Company Code is required.']
+                    if not (current('sales_organization', []) or []):
+                        errors['sales_organization'] = ['Sales Organization is required.']
+                    if not str(current('distribution_channel', '') or '').strip():
+                        errors['distribution_channel'] = ['Distribution Channel is required.']
+                    if not str(current('division', '') or '').strip():
+                        errors['division'] = ['Division is required.']
+                    if not str(current('delivery_plant', '') or '').strip():
+                        errors['delivery_plant'] = ['Delivery Plant is required.']
+                    if not str(current('transportation_zone', '') or '').strip():
+                        errors['transportation_zone'] = ['Transportation Zone is required.']
+                    if not str(current('payment_terms', '') or '').strip():
+                        errors['payment_terms'] = ['Payment Terms is required.']
+
             if errors:
                 raise serializers.ValidationError(errors)
 
@@ -340,6 +380,7 @@ class OnboardingApprovalHistorySerializer(serializers.ModelSerializer):
 
 class ExtensionEditRequestListSerializer(serializers.ModelSerializer):
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
     approved_by_email = serializers.EmailField(source='approved_by.email', read_only=True)
     assigned_boss_email = serializers.SerializerMethodField()
 
@@ -348,7 +389,7 @@ class ExtensionEditRequestListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'request_code', 'request_type', 'target_type', 'account_number',
             'company_name', 'status', 'created_at', 'updated_at',
-            'created_by_email', 'approved_by_email', 'assigned_boss_email', 'remarks',
+            'created_by_email', 'created_by_name', 'approved_by_email', 'assigned_boss_email', 'remarks',
         ]
 
     def get_assigned_boss_email(self, obj):

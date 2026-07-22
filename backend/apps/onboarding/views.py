@@ -151,7 +151,7 @@ def _selected_approval_boss(user, data):
     return selected_boss, None
 
 
-def _validate_required_manual_onboarding_fields(data):
+def _validate_required_manual_onboarding_fields(data, require_sap_reference=False):
     errors = {}
     is_customer = str(data.get('onboarding_type', '') or '').strip().upper() == 'CUSTOMER'
     required_text_fields = {
@@ -198,6 +198,40 @@ def _validate_required_manual_onboarding_fields(data):
                 errors['msme_category'] = ['MSME category is required.']
             if not str(data.get('udyam_number', '')).strip():
                 errors['udyam_number'] = ['Udyam registration number is required.']
+
+    if require_sap_reference:
+        if not is_customer:
+            if not str(data.get('reference_vendor_code', '')).strip():
+                errors['reference_vendor_code'] = ['Business Partner Number is required.']
+            if not str(data.get('purchase_orgs_to_open', '')).strip():
+                errors['purchase_orgs_to_open'] = ['Purchase Org. is required.']
+            if not str(data.get('search_term', '')).strip():
+                errors['search_term'] = ['Search Term is required.']
+            if not str(data.get('company_code_to_open', '')).strip():
+                errors['company_code_to_open'] = ['Company Code is required.']
+            if not str(data.get('payment_terms', '')).strip():
+                errors['payment_terms'] = ['Payment Terms is required.']
+            if not str(data.get('tds_codes', '')).strip():
+                errors['tds_codes'] = ['TDS Codes is required.']
+        else:
+            if not data.get('sales_reference_orgs'):
+                errors['sales_reference_orgs'] = ['Sales Reference Org is required.']
+            if not str(data.get('customer_search_term', '')).strip():
+                errors['customer_search_term'] = ['Search Term is required.']
+            if not str(data.get('customer_company_code', '')).strip():
+                errors['customer_company_code'] = ['Company Code is required.']
+            if not data.get('sales_organization'):
+                errors['sales_organization'] = ['Sales Organization is required.']
+            if not str(data.get('distribution_channel', '')).strip():
+                errors['distribution_channel'] = ['Distribution Channel is required.']
+            if not str(data.get('division', '')).strip():
+                errors['division'] = ['Division is required.']
+            if not str(data.get('delivery_plant', '')).strip():
+                errors['delivery_plant'] = ['Delivery Plant is required.']
+            if not str(data.get('transportation_zone', '')).strip():
+                errors['transportation_zone'] = ['Transportation Zone is required.']
+            if not str(data.get('payment_terms', '')).strip():
+                errors['payment_terms'] = ['Payment Terms is required.']
 
     return errors
 
@@ -669,14 +703,14 @@ class ManualOnboardingView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         data = {**request.data, 'onboarding_type': onboarding_type}
-        required_errors = _validate_required_manual_onboarding_fields(data)
+        required_errors = _validate_required_manual_onboarding_fields(data, require_sap_reference=True)
         if required_errors:
             return Response(required_errors, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = OnboardingDetailSerializer(
             data=data,
             partial=True,
-            context={'require_complete': True},
+            context={'require_complete': True, 'require_sap_reference': True},
         )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -976,7 +1010,7 @@ class OnboardingDetailView(APIView):
             onboarding,
             data=request.data,
             partial=True,
-            context={'require_complete': True},
+            context={'require_complete': True, 'require_sap_reference': True},
         )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -2062,15 +2096,28 @@ class VerifyPANAPIView(APIView):
 
             pan_data = result.get("data", {})
 
-            is_verified = (
+            is_status_valid = (
                 pan_data.get("status") == "valid"
             )
 
-            if is_verified:
+            # Aadhaar seeding only applies to individual/HUF PAN holders
+            # (4th character P/H). For other holder types (e.g. Company),
+            # we only check the PAN validity status.
+            check_aadhaar = pan_name_is_editable(pan)
 
-                if pan_data.get(
+            if is_status_valid:
+
+                if not check_aadhaar:
+
+                    is_verified = True
+
+                    verification_status = "Valid"
+
+                elif pan_data.get(
                     "aadhaar_seeding_status"
                 ) == "y":
+
+                    is_verified = True
 
                     verification_status = (
                         "Valid and Operative (Aadhaar Linked)"
@@ -2078,11 +2125,15 @@ class VerifyPANAPIView(APIView):
 
                 else:
 
+                    is_verified = False
+
                     verification_status = (
                         "Valid and Inoperative"
                     )
 
             else:
+
+                is_verified = False
 
                 verification_status = (
                     pan_data.get(

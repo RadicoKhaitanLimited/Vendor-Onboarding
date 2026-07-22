@@ -213,6 +213,25 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
       }
     }
 
+    if (!isCustomer) {
+      if (shouldRequire('reference_vendor_code') && !nextForm.reference_vendor_code.trim()) e.reference_vendor_code = 'Business Partner Number is required.'
+      if (shouldRequire('purchase_orgs_to_open') && !nextForm.purchase_orgs_to_open.trim()) e.purchase_orgs_to_open = 'Purchase Org. is required.'
+      if (shouldRequire('search_term') && !nextForm.search_term) e.search_term = 'Search Term is required.'
+      if (shouldRequire('company_code_to_open') && !nextForm.company_code_to_open) e.company_code_to_open = 'Company Code is required.'
+      if (shouldRequire('payment_terms') && !nextForm.payment_terms) e.payment_terms = 'Payment Terms is required.'
+      if (shouldRequire('tds_codes') && !nextForm.tds_codes && !e.tds_codes) e.tds_codes = 'TDS Codes is required.'
+    } else {
+      if (shouldRequire('sales_reference_orgs') && !nextForm.sales_reference_orgs.length) e.sales_reference_orgs = 'Sales Reference Org is required.'
+      if (shouldRequire('customer_search_term') && !nextForm.customer_search_term) e.customer_search_term = 'Search Term is required.'
+      if (shouldRequire('customer_company_code') && !nextForm.customer_company_code) e.customer_company_code = 'Company Code is required.'
+      if (shouldRequire('sales_organization') && !nextForm.sales_organization.length) e.sales_organization = 'Sales Organization is required.'
+      if (shouldRequire('distribution_channel') && !nextForm.distribution_channel) e.distribution_channel = 'Distribution Channel is required.'
+      if (shouldRequire('division') && !nextForm.division) e.division = 'Division is required.'
+      if (shouldRequire('delivery_plant') && !nextForm.delivery_plant) e.delivery_plant = 'Delivery Plant is required.'
+      if (shouldRequire('transportation_zone') && !nextForm.transportation_zone) e.transportation_zone = 'Transportation Zone is required.'
+      if (shouldRequire('payment_terms') && !nextForm.payment_terms) e.payment_terms = 'Payment Terms is required.'
+    }
+
     if (shouldRequire('pan_doc') && !nextFiles.PAN) e.pan_doc = 'PAN Card document is required.'
     if (nextForm.gst_applicable && shouldRequire('gst_doc') && !nextFiles.GST) e.gst_doc = 'GST Certificate is required.'
     if (!isCustomer) {
@@ -774,17 +793,21 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
               onRangeChange={(value) => set('vendor_reference_range', value)}
               onMappingChange={applyVendorReferenceMapping}
               isCustomer={isCustomer}
+              required={!isCustomer}
+              error={!isCustomer ? errors.reference_vendor_code : ''}
             />
             {isCustomer && (
               <div className="field">
-                <label>Sales Reference Org</label>
+                <label>Sales Reference Org <span className="req">*</span></label>
                 <SalesReferenceOrgSelect value={form.sales_reference_orgs} onChange={setSalesReferenceOrgs} />
+                {errors.sales_reference_orgs && <span className="field-error">{errors.sales_reference_orgs}</span>}
               </div>
             )}
             {isCustomer && (
               <div className="field">
-                <label>Search Term</label>
+                <label>Search Term <span className="req">*</span></label>
                 <CustomerSearchTermSelect value={form.customer_search_term} onChange={(value) => set('customer_search_term', value)} />
+                {errors.customer_search_term && <span className="field-error">{errors.customer_search_term}</span>}
               </div>
             )}
             {isCustomer && (
@@ -793,31 +816,36 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                   <div className="card-title">Sales Area</div>
                   <div className="grid-2">
                     <div className="field">
-                      <label>Company Code</label>
+                      <label>Company Code <span className="req">*</span></label>
                       <CustomerCompanyCodeSelect value={form.customer_company_code} onChange={(value) => set('customer_company_code', value)} />
+                      {errors.customer_company_code && <span className="field-error">{errors.customer_company_code}</span>}
                     </div>
                     <div className="field">
-                      <label>Sales Organization</label>
+                      <label>Sales Organization <span className="req">*</span></label>
                       <SalesOrganizationSelect
                         value={form.sales_organization}
                         onChange={(value) => set('sales_organization', value)}
                         restrictTo={form.sales_reference_orgs}
                       />
+                      {errors.sales_organization && <span className="field-error">{errors.sales_organization}</span>}
                     </div>
                     <div className="field">
-                      <label>Distribution Channel</label>
+                      <label>Distribution Channel <span className="req">*</span></label>
                       <DistributionChannelSelect value={form.distribution_channel} onChange={(value) => set('distribution_channel', value)} />
+                      {errors.distribution_channel && <span className="field-error">{errors.distribution_channel}</span>}
                     </div>
                     <div className="field">
-                      <label>Division</label>
+                      <label>Division <span className="req">*</span></label>
                       <DivisionSelect value={form.division} onChange={(value) => set('division', value)} />
+                      {errors.division && <span className="field-error">{errors.division}</span>}
                     </div>
                     <div className="field">
-                      <label>Delivery Plant</label>
+                      <label>Delivery Plant <span className="req">*</span></label>
                       <DeliveryPlantSelect
                         value={form.delivery_plant}
                         onChange={(value) => set('delivery_plant', value)}
                       />
+                      {errors.delivery_plant && <span className="field-error">{errors.delivery_plant}</span>}
                     </div>
                   </div>
                 </div>
@@ -825,8 +853,9 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
             )}
             {isCustomer && (
               <div className="field">
-                <label>Transportation Zone</label>
+                <label>Transportation Zone <span className="req">*</span></label>
                 <TransportationZoneSelect value={form.transportation_zone} onChange={(value) => set('transportation_zone', value)} />
+                {errors.transportation_zone && <span className="field-error">{errors.transportation_zone}</span>}
               </div>
             )}
             {!isCustomer && (
@@ -837,34 +866,39 @@ export default function ManualOnboardingModal({ onClose, onCreated }) {
                 onOpenChange={setCreatedPurchaseOrgs}
                 searchTermField={
                   <div className="field">
-                    <label>Search Term</label>
+                    <label>Search Term <span className="req">*</span></label>
                     <SearchTermSelect value={form.search_term} onChange={(value) => set('search_term', value)} />
+                    {errors.search_term && <span className="field-error">{errors.search_term}</span>}
                   </div>
                 }
                 companyCodeField={
                   <div className="field">
-                    <label>Company Code (In which to be opened)</label>
+                    <label>Company Code (In which to be opened) <span className="req">*</span></label>
                     <CompanyCodeSelect
                       value={form.company_code_to_open}
                       onChange={(value) => set('company_code_to_open', value)}
                       disabled={!!form.reference_purchase_orgs.length}
                     />
+                    {errors.company_code_to_open && <span className="field-error">{errors.company_code_to_open}</span>}
                   </div>
                 }
               />
             )}
+            {!isCustomer && errors.purchase_orgs_to_open && (
+              <span className="field-error">{errors.purchase_orgs_to_open}</span>
+            )}
             <div className="field">
-              <label>Payment Terms</label>
+              <label>Payment Terms <span className="req">*</span></label>
               <select value={form.payment_terms} onChange={(e) => set('payment_terms', e.target.value)}>
                 <option value="">— Select —</option>
                 <PaymentTermsSelect />
               </select>
+              {errors.payment_terms && <span className="field-error">{errors.payment_terms}</span>}
             </div>
             {!isCustomer && (
               <div className="field">
                 <label>
-                  TDS Codes
-                  {isTdsMandatoryForGroupCode(form.group_code) && <span className="req">*</span>}
+                  TDS Codes <span className="req">*</span>
                 </label>
                 <TDSCodeSelect value={form.tds_codes} onChange={(value) => set('tds_codes', value)} />
                 {errors.tds_codes && <span className="field-error">{errors.tds_codes}</span>}

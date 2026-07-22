@@ -6,6 +6,8 @@ export default function VendorReferenceLookupFields({
   onCodeChange,
   onRangeChange,
   onMappingChange,
+  required,
+  error,
 }) {
   const [lookupValue, setLookupValue] = useState(code || '')
   const [loading, setLoading] = useState(false)
@@ -54,7 +56,7 @@ export default function VendorReferenceLookupFields({
   return (
     <div className="vendor-ref-result span-2">
       <div className="field vendor-ref-range-field">
-        <label>Business Partner Number</label>
+        <label>Business Partner Number {required && <span className="req">*</span>}</label>
         <input
           type="text"
           inputMode="numeric"
@@ -68,8 +70,9 @@ export default function VendorReferenceLookupFields({
           }}
           placeholder="Enter business partner number"
           style={{ fontFamily: 'var(--mono)' }}
-          className={!loading && message ? 'error' : ''}
+          className={(!loading && message) || error ? 'error' : ''}
         />
+        {error && <span className="field-error">{error}</span>}
       </div>
 
       <div className="vendor-ref-result-head">
