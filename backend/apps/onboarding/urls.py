@@ -13,6 +13,7 @@ from .views import (
     DeliveryPlantListView,
     ExtensionEditRequestListView, CreateExtensionEditRequestView, ExtensionEditRequestDetailView,
     SendExtensionEditRequestToBossView, ApproveExtensionEditRequestView, RejectExtensionEditRequestView,
+    BulkExtensionEditImportView, BulkExtensionEditTemplateView,
 )
 
 urlpatterns = [
@@ -52,6 +53,8 @@ urlpatterns = [
     path('delivery-plants/', DeliveryPlantListView.as_view(), name='delivery_plant_list'),
     path('extension-edit/', ExtensionEditRequestListView.as_view(), name='extension_edit_list'),
     path('extension-edit/create/', CreateExtensionEditRequestView.as_view(), name='extension_edit_create'),
+    path('extension-edit/bulk-import/', BulkExtensionEditImportView.as_view(), name='extension_edit_bulk_import'),
+    path('extension-edit/bulk-import/template/', BulkExtensionEditTemplateView.as_view(), name='extension_edit_bulk_import_template'),
     path('extension-edit/<uuid:pk>/', ExtensionEditRequestDetailView.as_view(), name='extension_edit_detail'),
     path('extension-edit/<uuid:pk>/send-to-boss/', SendExtensionEditRequestToBossView.as_view(), name='extension_edit_send_to_boss'),
     path('extension-edit/<uuid:pk>/approve/', ApproveExtensionEditRequestView.as_view(), name='extension_edit_approve'),

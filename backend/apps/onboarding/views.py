@@ -947,6 +947,201 @@ class BulkOnboardingImportView(APIView):
         )
 
 
+BULK_EXTENSION_EDIT_COLUMNS = [
+    ('request_type', 'Request Type (Extension/Edit)'),
+    ('target_type', 'Target Type (Vendor/Customer)'),
+    ('account_number', 'Account Number'),
+    ('company_name', 'Vendor/Customer Name'),
+    ('company_name_2', 'Vendor/Customer Name 2'),
+    ('company_name_3', 'Vendor/Customer Name 3'),
+    ('company_name_4', 'Vendor/Customer Name 4'),
+    ('remarks_request', 'What needs to be extended/edited'),
+    ('reference_vendor_code', 'Business Partner Number (Vendor)'),
+    ('purchase_orgs_to_open', 'Purchase Org(s) (Vendor, comma-separated)'),
+    ('search_term', 'Search Term (Vendor)'),
+    ('company_code_to_open', 'Company Code (Vendor)'),
+    ('payment_terms', 'Payment Terms'),
+    ('tds_codes', 'TDS Codes (Vendor, comma-separated)'),
+    ('account_holder_name', 'Account Holder Name (Vendor)'),
+    ('bank_name', 'Bank Name (Vendor)'),
+    ('branch_name', 'Branch Name (Vendor)'),
+    ('bank_account_number', 'Bank Account Number (Vendor)'),
+    ('ifsc_code', 'IFSC Code (Vendor)'),
+    ('sales_reference_orgs', 'Sales Reference Org(s) (Customer, comma-separated)'),
+    ('customer_search_term', 'Search Term (Customer)'),
+    ('sales_organization', 'Sales Organization(s) (Customer, comma-separated)'),
+    ('distribution_channel', 'Distribution Channel (Customer)'),
+    ('division', 'Division (Customer)'),
+    ('delivery_plant', 'Delivery Plant (Customer)'),
+    ('transportation_zone', 'Transportation Zone (Customer)'),
+    ('customer_company_code', 'Company Code (Customer)'),
+]
+
+
+class BulkExtensionEditTemplateView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = 'Bulk Extension-Edit Template'
+        worksheet.append([header for _, header in BULK_EXTENSION_EDIT_COLUMNS])
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True)
+        for index in range(1, len(BULK_EXTENSION_EDIT_COLUMNS) + 1):
+            worksheet.column_dimensions[worksheet.cell(row=1, column=index).column_letter].width = 26
+        worksheet.freeze_panes = 'A2'
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="bulk_extension_edit_template.xlsx"'
+        workbook.save(response)
+        return response
+
+
+def _row_to_extension_edit_data(row, headers):
+    padded_row = list(row) + [None] * (len(headers) - len(row))
+    raw = dict(zip(headers, padded_row))
+    data = {}
+    for field, header in BULK_EXTENSION_EDIT_COLUMNS:
+        data[field] = raw.get(header)
+
+    data['request_type'] = _bulk_import_cell(data.get('request_type')).upper()
+    data['target_type'] = _bulk_import_cell(data.get('target_type')).upper()
+    is_customer = data['target_type'] == 'CUSTOMER'
+
+    for field in [
+        'account_number', 'company_name', 'company_name_2', 'company_name_3', 'company_name_4',
+        'remarks_request', 'payment_terms',
+    ]:
+        data[field] = _bulk_import_cell(data.get(field))
+
+    if is_customer:
+        data['reference_vendor_code'] = ''
+        data['vendor_reference_range'] = ''
+        data['reference_name'] = ''
+        data['gl_account_number'] = ''
+        data['gl_account_description'] = ''
+        data['reference_purchase_orgs'] = []
+        data['purchase_orgs_to_open'] = ''
+        data['search_term'] = ''
+        data['company_code_to_open'] = ''
+        data['tds_codes'] = ''
+        data['account_holder_name'] = ''
+        data['bank_name'] = ''
+        data['branch_name'] = ''
+        data['bank_account_number'] = ''
+        data['ifsc_code'] = ''
+
+        data['sales_reference_orgs'] = _bulk_import_list(data.get('sales_reference_orgs'))
+        data['customer_search_term'] = _bulk_import_cell(data.get('customer_search_term'))
+        data['sales_organization'] = _bulk_import_list(data.get('sales_organization'))
+        data['distribution_channel'] = _bulk_import_cell(data.get('distribution_channel'))
+        data['division'] = _bulk_import_cell(data.get('division'))
+        data['delivery_plant'] = _bulk_import_cell(data.get('delivery_plant'))
+        data['transportation_zone'] = _bulk_import_cell(data.get('transportation_zone'))
+        data['customer_company_code'] = _bulk_import_cell(data.get('customer_company_code'))
+    else:
+        data['reference_vendor_code'] = _bulk_import_cell(data.get('reference_vendor_code'))
+        # purchase_orgs_to_open is left as the raw comma-separated cell value;
+        # ExtensionEditRequestSerializer.validate() normalizes it into a list,
+        # mirrors it onto reference_purchase_orgs, and derives
+        # company_code_to_open from it.
+        data['purchase_orgs_to_open'] = _bulk_import_cell(data.get('purchase_orgs_to_open'))
+        data['search_term'] = _bulk_import_cell(data.get('search_term'))
+        data['tds_codes'] = ', '.join(_bulk_import_list(data.get('tds_codes')))
+        data['account_holder_name'] = _bulk_import_cell(data.get('account_holder_name'))
+        data['bank_name'] = _bulk_import_cell(data.get('bank_name'))
+        data['branch_name'] = _bulk_import_cell(data.get('branch_name'))
+        data['bank_account_number'] = _bulk_import_cell(data.get('bank_account_number'))
+        data['ifsc_code'] = _bulk_import_cell(data.get('ifsc_code')).upper()
+
+        data['sales_reference_orgs'] = []
+        data['customer_search_term'] = ''
+        data['sales_organization'] = []
+        data['distribution_channel'] = ''
+        data['division'] = ''
+        data['delivery_plant'] = ''
+        data['transportation_zone'] = ''
+        data['customer_company_code'] = ''
+
+    return data
+
+
+class BulkExtensionEditImportView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        upload = request.FILES.get('file')
+        if not upload:
+            return Response({'file': ['An Excel file is required.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        from openpyxl import load_workbook
+        try:
+            workbook = load_workbook(upload, data_only=True)
+        except Exception:
+            return Response({'file': ['Could not read the Excel file. Upload a valid .xlsx file.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        worksheet = workbook.active
+        rows = list(worksheet.iter_rows(values_only=True))
+        if not rows:
+            return Response({'file': ['The file is empty.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        headers = [_bulk_import_cell(cell) for cell in rows[0]]
+        data_rows = rows[1:]
+        if not data_rows:
+            return Response({'file': ['No data rows found below the header.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        created = []
+        row_errors = []
+
+        for index, row in enumerate(data_rows, start=2):
+            if not any(_bulk_import_cell(cell) for cell in row):
+                continue
+
+            row_data = _row_to_extension_edit_data(row, headers)
+            required_errors = _validate_required_extension_edit_fields(row_data)
+            if required_errors:
+                row_errors.append({'row': index, 'errors': required_errors})
+                continue
+
+            serializer = ExtensionEditRequestSerializer(
+                data=row_data,
+                partial=True,
+                context={'require_complete': True},
+            )
+            if not serializer.is_valid():
+                row_errors.append({'row': index, 'errors': serializer.errors})
+                continue
+
+            extension_edit_request = serializer.save(
+                created_by=request.user,
+                assigned_user=None,
+                status='DRAFT',
+            )
+            OnboardingApprovalHistory.objects.create(
+                extension_edit_request=extension_edit_request,
+                action='SUBMITTED',
+                actor=request.user,
+                comments='Created via bulk Excel import.',
+            )
+            created.append(extension_edit_request)
+
+        return Response(
+            {
+                'created_count': len(created),
+                'error_count': len(row_errors),
+                'created': ExtensionEditRequestListSerializer(created, many=True).data,
+                'errors': row_errors,
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_400_BAD_REQUEST,
+        )
+
+
 # ── Admin: Create onboarding & send email ────────────────────────
 class CreateOnboardingView(APIView):
     permission_classes = [IsAdmin]

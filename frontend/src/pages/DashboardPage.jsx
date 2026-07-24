@@ -9,6 +9,7 @@ import ManageUsersModal from '../components/ManageUsersModal'
 import ManualOnboardingModal from '../components/ManualOnboardingModal'
 import BulkImportModal from '../components/BulkImportModal'
 import ExtensionEditModal from '../components/ExtensionEditModal'
+import BulkExtensionEditModal from '../components/BulkExtensionEditModal'
 import { formatMsmeOption, normalizeMsmeCode } from '../constants/msme'
 import { isPanNameEditable } from '../utils/panName'
 import { fullCompanyName } from '../utils/companyName'
@@ -136,6 +137,7 @@ export default function DashboardPage() {
   const [showManualModal, setShowManualModal] = useState(false)
   const [showBulkImportModal, setShowBulkImportModal] = useState(false)
   const [showExtensionEditModal, setShowExtensionEditModal] = useState(false)
+  const [showBulkExtensionEditModal, setShowBulkExtensionEditModal] = useState(false)
   const [selectedIds, setSelectedIds] = useState([])
   const [bulkSendBoss, setBulkSendBoss] = useState('')
   const [bulkSending, setBulkSending] = useState(false)
@@ -218,6 +220,10 @@ export default function DashboardPage() {
   }
 
   const handleBulkImported = () => {
+    fetchData()
+  }
+
+  const handleBulkExtensionEditImported = () => {
     fetchData()
   }
 
@@ -456,6 +462,9 @@ export default function DashboardPage() {
             </button>
             <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowExtensionEditModal(true)}>
               Extension / Edit Vendor or Customer
+            </button>
+            <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowBulkExtensionEditModal(true)}>
+              Bulk Extension / Edit (Excel)
             </button>
           </div>
           <div className="dashboard-actions-right">
@@ -875,6 +884,13 @@ export default function DashboardPage() {
         <ExtensionEditModal
           onClose={() => setShowExtensionEditModal(false)}
           onCreated={handleExtensionEditCreated}
+        />
+      )}
+
+      {showBulkExtensionEditModal && (
+        <BulkExtensionEditModal
+          onClose={() => setShowBulkExtensionEditModal(false)}
+          onImported={handleBulkExtensionEditImported}
         />
       )}
     </>

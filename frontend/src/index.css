@@ -333,9 +333,11 @@ header::after {
 .dashboard-action-btn,
 .dashboard-export-btn {
   min-height: 46px;
-  padding-inline: 30px;
+  min-width: 200px;
+  padding-inline: 20px;
   border-radius: 10px;
   box-shadow: 0 1px 0 rgba(255,255,255,.27) inset, 0 9px 18px rgba(2,8,20,.17);
+  justify-content: center;
 }
 .dashboard-primary-action {
   background: linear-gradient(135deg, #9F6B08 0%, #C79512 44%, #DDBB43 100%);
@@ -2009,7 +2011,7 @@ th.select-col .row-check-box { border-color: #B9C4D6; }
   .dashboard-actions-top { margin: -0.25rem 0 1rem; }
   .dashboard-actions-left { flex: 1 1 100%; }
   .dashboard-export-btn { margin-left: 0; }
-  .dashboard-actions .btn { flex: 1; justify-content: center; padding-inline: 12px; }
+  .dashboard-actions .btn { flex: 1; justify-content: center; padding-inline: 12px; min-width: 0; }
   .doc-section { grid-template-columns: 1fr; }
   .choice-grid { grid-template-columns: 1fr; }
   .modal-panel { width: 100vw; }
