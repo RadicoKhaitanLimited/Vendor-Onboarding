@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 
@@ -87,7 +87,12 @@ export default function LoginPage() {
               </div>
 
               <div className="field login-field">
-                <label>Password <span className="req">*</span></label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <label>Password <span className="req">*</span></label>
+                  <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--gold-dark, #b8933a)' }}>
+                    Forgot password?
+                  </Link>
+                </div>
                 <div className="login-input-wrap">
                   <svg className="login-input-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
                   <input

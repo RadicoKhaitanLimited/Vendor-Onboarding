@@ -116,6 +116,11 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# ── Frontend build (React/Vite) served by Django via WhiteNoise ──
+FRONTEND_DIST = BASE_DIR.parent / 'frontend' / 'dist'
+WHITENOISE_ROOT = FRONTEND_DIST
+
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
@@ -178,6 +183,9 @@ SAP_CREATION_NOTIFY_EMAIL = config('SAP_CREATION_NOTIFY_EMAIL', default='sharmam
 
 # ── Onboarding Token Expiry ──────────────────────────────────────
 ONBOARDING_TOKEN_EXPIRY_HOURS = 72
+
+# ── Password Reset Token Expiry ───────────────────────────────────
+PASSWORD_RESET_TOKEN_EXPIRY_MINUTES = config('PASSWORD_RESET_TOKEN_EXPIRY_MINUTES', default=60, cast=int)
 
 
 SANDBOX_API_KEY = config("SANDBOX_API_KEY")

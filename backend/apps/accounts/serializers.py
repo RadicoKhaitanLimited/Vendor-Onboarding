@@ -1,4 +1,5 @@
 import re
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User
@@ -184,3 +185,23 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
 
 RegisterAdminSerializer = UserCreateSerializer
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        if not is_valid_email(value):
+            raise serializers.ValidationError('Enter a valid email address.')
+        return value
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+    password_confirm = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({'password_confirm': 'Passwords do not match.'})
+        validate_password(attrs['password'], user=self.context.get('user'))
+        return attrs

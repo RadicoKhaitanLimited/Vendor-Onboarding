@@ -92,6 +92,26 @@ def send_sap_creation_request(onboarding):
     send_graph_email(to_email=to_email, subject=subject, html=html_body)
 
 
+def send_password_reset_email(to_email: str, token: str):
+    reset_url = f"{settings.FRONTEND_URL}/reset-password/{token}"
+
+    context = {
+        "reset_url": reset_url,
+        "expiry_minutes": getattr(settings, "PASSWORD_RESET_TOKEN_EXPIRY_MINUTES", 60),
+        "logo_url": f"{settings.FRONTEND_URL}/radico-logo.png",
+    }
+
+    html_body = render_to_string("email/password_reset.html", context)
+
+    logger.info("Sending password reset email to %s", to_email)
+    send_graph_email(
+        to_email=to_email,
+        subject="Radico Khaitan - Password Reset Request",
+        html=html_body,
+    )
+    logger.info("Password reset email sent successfully")
+
+
 def send_boss_approval_request(to_email: str, onboarding, employee):
     """Notify an assigned boss and link directly to the protected review screen."""
     is_extension_edit = hasattr(onboarding, 'request_code')

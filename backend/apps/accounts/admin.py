@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import User, PasswordResetToken
 
 
 @admin.register(User)
@@ -24,3 +24,15 @@ class UserAdmin(BaseUserAdmin):
 
     def boss_list(self, obj):
         return ', '.join(obj.bosses.values_list('email', flat=True)) or '-'
+
+
+@admin.register(PasswordResetToken)
+class PasswordResetTokenAdmin(admin.ModelAdmin):
+    list_display = ['user', 'is_used', 'expiry', 'created_at']
+    list_filter = ['is_used']
+    search_fields = ['user__email']
+    readonly_fields = ['id', 'user', 'token', 'expiry', 'is_used', 'created_at']
+    ordering = ['-created_at']
+
+    def has_add_permission(self, request):
+        return False
