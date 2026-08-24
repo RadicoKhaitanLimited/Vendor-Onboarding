@@ -671,6 +671,133 @@ class OnboardingSingleExportView(OnboardingExportView):
         return self.build_workbook_response(queryset, filename)
 
 
+class CustomerExportView(APIView):
+    """SAP mass customer-creation template. Column values are populated
+    incrementally - hardcoded defaults and conditional logic are added per
+    business instruction rather than guessed."""
+
+    permission_classes = [IsAdmin]
+
+    COLUMNS = [
+        ('Business Category', lambda o: ''),
+        ('BP Grouping', lambda o: ''),
+        ('Title', lambda o: ''),
+        ('Name1', lambda o: ''),
+        ('Name2', lambda o: ''),
+        ('Name3', lambda o: ''),
+        ('Name4', lambda o: ''),
+        ('Correspondence lang', lambda o: ''),
+        ('Search Term 1', lambda o: ''),
+        ('Search Term 2', lambda o: ''),
+        ('c/o Name Default Supplier', lambda o: ''),
+        ('Street name (60)', lambda o: ''),
+        ('Street4', lambda o: ''),
+        ('Street5', lambda o: ''),
+        ('Street2', lambda o: ''),
+        ('Street3', lambda o: ''),
+        ('House Number', lambda o: ''),
+        ('District', lambda o: ''),
+        ('City postal code', lambda o: ''),
+        ('City', lambda o: ''),
+        ('Country', lambda o: ''),
+        ('Region', lambda o: ''),
+        ('Transport Zone', lambda o: ''),
+        ('PO_BOX', lambda o: ''),
+        ('Postal code', lambda o: ''),
+        ('Telephone1', lambda o: ''),
+        ('Telephone2', lambda o: ''),
+        ('Telephone3', lambda o: ''),
+        ('Mobile No1', lambda o: ''),
+        ('Mobile No2', lambda o: ''),
+        ('Mobile No3', lambda o: ''),
+        ('Fax No.', lambda o: ''),
+        ('E.mail1', lambda o: ''),
+        ('E.mail12', lambda o: ''),
+        ('E.mail13', lambda o: ''),
+        ('Category', lambda o: ''),
+        ('Customer GSTIN', lambda o: ''),
+        ('Category', lambda o: ''),
+        ('Customer TAN', lambda o: ''),
+        ('PAN NO.', lambda o: ''),
+        ('ID Type', lambda o: ''),
+        ('ID Number', lambda o: ''),
+        ('Vaild From', lambda o: ''),
+        ('Valid To', lambda o: ''),
+        ('External Address No.', lambda o: ''),
+        ('Salutation', lambda o: ''),
+        ('Express station', lambda o: ''),
+        ('Train station', lambda o: ''),
+        ('Location code', lambda o: ''),
+        ('Regional market', lambda o: ''),
+        ('Customer Bank IFSC', lambda o: ''),
+        ('Customer Bank Account No', lambda o: ''),
+        ('Company Code', lambda o: ''),
+        ('Recon Account', lambda o: ''),
+        ('Sort Key', lambda o: ''),
+        ('Planning group', lambda o: ''),
+        ('Interest calculation indicator', lambda o: ''),
+        ('Payment Term', lambda o: ''),
+        ('Payment method', lambda o: ''),
+        ('Withholding tax type', lambda o: ''),
+        ('Withholding tax Code/category', lambda o: ''),
+        ('Withholding tax number', lambda o: ''),
+        ('Sales Org', lambda o: ''),
+        ('Distribution Channel', lambda o: ''),
+        ('Division', lambda o: ''),
+        ('Sales District', lambda o: ''),
+        ('Customer Group', lambda o: ''),
+        ('Sales Office', lambda o: ''),
+        ('Sales Group', lambda o: ''),
+        ('Virtual Bank Account Code', lambda o: ''),
+        ('Currency', lambda o: ''),
+        ('Price Grp.', lambda o: ''),
+        ('Customer Pri. Pro.', lambda o: ''),
+        ('Price List', lambda o: ''),
+        ('Cust.Stats.Grp', lambda o: ''),
+        ('Delivery Priority', lambda o: ''),
+        ('Delivering Plant', lambda o: ''),
+        ('Shipping Conditions', lambda o: ''),
+        ('Incoterms', lambda o: ''),
+        ('Incoterms Location 1', lambda o: ''),
+        ('Payment Terms', lambda o: ''),
+        ('Account Assign. Grp.', lambda o: ''),
+    ]
+
+    def build_workbook_response(self, queryset, filename):
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = 'Mass Customer Creation Template'
+        worksheet.append([header for header, _ in self.COLUMNS])
+
+        for onboarding in queryset:
+            worksheet.append([getter(onboarding) for _, getter in self.COLUMNS])
+
+        for index in range(1, len(self.COLUMNS) + 1):
+            worksheet.column_dimensions[worksheet.cell(row=1, column=index).column_letter].width = 22
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True)
+        worksheet.freeze_panes = 'A2'
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        workbook.save(response)
+        return response
+
+    def get(self, request):
+        try:
+            queryset = _filter_by_created_date(_scoped_qs(request.user), request.query_params)
+        except ValueError as error:
+            return Response(error.args[0], status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = queryset.filter(status='APPROVED', onboarding_type='CUSTOMER')
+        return self.build_workbook_response(queryset, 'customer_export.xlsx')
+
+
 class PanDataExportView(APIView):
     """Export PAN-specific data for records that have a PAN number."""
     permission_classes = [IsAdmin]

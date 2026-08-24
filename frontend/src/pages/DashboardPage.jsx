@@ -129,6 +129,7 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [customerExporting, setCustomerExporting] = useState(false)
   const [rowExportingId, setRowExportingId] = useState(null)
   const [panExporting, setPanExporting] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
@@ -360,6 +361,37 @@ export default function DashboardPage() {
     }
   }
 
+  const handleCustomerExport = async () => {
+    if (startDate && endDate && startDate > endDate) {
+      toast.error('Invalid date range', 'End date must be on or after start date.')
+      return
+    }
+
+    setCustomerExporting(true)
+    try {
+      const response = await api.get('/onboarding/export/customers/', {
+        params: {
+          ...(startDate ? { start_date: startDate } : {}),
+          ...(endDate ? { end_date: endDate } : {}),
+        },
+        responseType: 'blob',
+      })
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'customer_export.xlsx'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success('Customer export downloaded')
+    } catch {
+      toast.error('Export failed', 'Unable to export the selected customer records.')
+    } finally {
+      setCustomerExporting(false)
+    }
+  }
+
   const handlePanExport = async () => {
     if (startDate && endDate && startDate > endDate) {
       toast.error('Invalid date range', 'End date must be on or after start date.')
@@ -473,6 +505,9 @@ export default function DashboardPage() {
             </button>
             <button className="btn btn-secondary dashboard-export-btn" onClick={handleExport} disabled={exporting}>
               {exporting ? 'Exporting…' : 'Export Vendor Excel'}
+            </button>
+            <button className="btn btn-secondary dashboard-export-btn" onClick={handleCustomerExport} disabled={customerExporting}>
+              {customerExporting ? 'Exporting…' : 'Export Customer Excel'}
             </button>
           </div>
         </div>
