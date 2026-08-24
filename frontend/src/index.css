@@ -320,7 +320,7 @@ header::after {
   padding: 0;
 }
 .dashboard-actions-left, .dashboard-actions-right {
-  display: flex; gap: 10px; flex-wrap: wrap;
+  display: flex; gap: 8px; flex-wrap: wrap;
   padding: 6px;
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 15px;
@@ -330,14 +330,29 @@ header::after {
 }
 .dashboard-actions-right { margin-left: auto; justify-content: flex-end; }
 .dashboard-export-btn { margin-left: 0; }
-.dashboard-action-btn,
-.dashboard-export-btn {
-  min-height: 46px;
-  min-width: 200px;
-  padding-inline: 20px;
+.btn.dashboard-action-btn,
+.btn.dashboard-export-btn {
+  min-height: 42px;
+  min-width: 0;
+  padding-inline: 16px;
   border-radius: 10px;
+  font-size: 13px;
+  white-space: nowrap;
   box-shadow: 0 1px 0 rgba(255,255,255,.27) inset, 0 9px 18px rgba(2,8,20,.17);
   justify-content: center;
+}
+/* These groups naturally wrap (inherited from .dashboard-actions) whenever
+   the viewport is too narrow to fit every button on one line - no forced
+   nowrap needed. Below ~900px, stack the two groups; below ~640px, stack
+   the buttons within each group too, full-width, for mobile. */
+@media (max-width: 900px) {
+  .dashboard-actions-top { flex-direction: column; align-items: stretch; }
+  .dashboard-actions-left, .dashboard-actions-right { justify-content: center; }
+  .dashboard-actions-right { margin-left: 0; }
+}
+@media (max-width: 640px) {
+  .dashboard-actions-left, .dashboard-actions-right { flex-direction: column; }
+  .btn.dashboard-action-btn, .btn.dashboard-export-btn { width: 100%; }
 }
 .dashboard-primary-action {
   background: linear-gradient(135deg, #9F6B08 0%, #C79512 44%, #DDBB43 100%);
