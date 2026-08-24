@@ -347,14 +347,14 @@ export default function DashboardPage() {
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.download = 'onboarding_export.xlsx'
+      link.download = 'vendor_export.xlsx'
       document.body.appendChild(link)
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-      toast.success('Export downloaded')
+      toast.success('Vendor export downloaded')
     } catch {
-      toast.error('Export failed', 'Unable to export the selected records.')
+      toast.error('Export failed', 'Unable to export the selected vendor records.')
     } finally {
       setExporting(false)
     }
@@ -472,7 +472,7 @@ export default function DashboardPage() {
               Bulk Import (Excel)
             </button>
             <button className="btn btn-secondary dashboard-export-btn" onClick={handleExport} disabled={exporting}>
-              {exporting ? 'Exporting…' : 'Export Excel'}
+              {exporting ? 'Exporting…' : 'Export Vendor Excel'}
             </button>
           </div>
         </div>

@@ -651,8 +651,8 @@ class OnboardingExportView(APIView):
         except ValueError as error:
             return Response(error.args[0], status=status.HTTP_400_BAD_REQUEST)
 
-        queryset = queryset.filter(status='APPROVED')
-        return self.build_workbook_response(queryset, 'onboarding_export.xlsx')
+        queryset = queryset.filter(status='APPROVED', onboarding_type='VENDOR')
+        return self.build_workbook_response(queryset, 'vendor_export.xlsx')
 
 
 class OnboardingSingleExportView(OnboardingExportView):
