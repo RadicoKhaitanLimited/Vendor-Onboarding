@@ -320,8 +320,8 @@ header::after {
   padding: 0;
 }
 .dashboard-actions-left, .dashboard-actions-right {
-  display: flex; gap: 8px; flex-wrap: wrap;
-  padding: 6px;
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding: 5px;
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 15px;
   background: linear-gradient(135deg, rgba(6,15,29,.32), rgba(6,15,29,.13));
@@ -332,11 +332,12 @@ header::after {
 .dashboard-export-btn { margin-left: 0; }
 .btn.dashboard-action-btn,
 .btn.dashboard-export-btn {
-  min-height: 42px;
+  min-height: 40px;
   min-width: 0;
-  padding-inline: 16px;
-  border-radius: 10px;
-  font-size: 13px;
+  padding-inline: 11px;
+  border-radius: 9px;
+  font-size: 12px;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   box-shadow: 0 1px 0 rgba(255,255,255,.27) inset, 0 9px 18px rgba(2,8,20,.17);
   justify-content: center;

@@ -493,7 +493,7 @@ export default function DashboardPage() {
               Generate Onboarding Link
             </button>
             <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowExtensionEditModal(true)}>
-              Extension / Edit Vendor or Customer
+              Extension / Edit
             </button>
             <button className="btn btn-secondary dashboard-action-btn" onClick={() => setShowBulkExtensionEditModal(true)}>
               Bulk Extension / Edit (Excel)
