@@ -687,7 +687,7 @@ class CustomerExportView(APIView):
 
     COLUMNS = [
         ('Business Category', lambda o: 2),
-        ('BP Grouping', lambda o: _vendor_group_code(o)),
+        ('BP Grouping', lambda o: ''),
         ('Title', lambda o: ''),
         ('Name1', lambda o: o.company_name),
         ('Name2', lambda o: o.company_name_2),
@@ -774,18 +774,12 @@ class CustomerExportView(APIView):
         from openpyxl import Workbook
         from openpyxl.styles import Font
 
-        vendor_masters = {
-            master.vendor_reference_range: master
-            for master in VendorReferenceMaster.objects.all()
-        }
-
         workbook = Workbook()
         worksheet = workbook.active
         worksheet.title = 'Mass Customer Creation Template'
         worksheet.append([header for header, _ in self.COLUMNS])
 
         for onboarding in queryset:
-            onboarding._vendor_reference_master = vendor_masters.get(onboarding.vendor_reference_range)
             worksheet.append([getter(onboarding) for _, getter in self.COLUMNS])
 
         for index in range(1, len(self.COLUMNS) + 1):
