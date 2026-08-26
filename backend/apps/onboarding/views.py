@@ -678,6 +678,31 @@ class OnboardingSingleExportView(OnboardingExportView):
         return self.build_workbook_response(queryset, filename)
 
 
+# BP Grouping -> (Customer Group, Price List, Account Assign. Grp.) for the
+# customer export. Account Assign. Grp. values are kept as strings so a
+# leading zero (e.g. '00') survives - Excel would otherwise store it as 0.
+CUSTOMER_BP_GROUPING_TABLE = {
+    'CALC': {'customer_group': 60, 'price_list': '70', 'account_assign_grp': '30'},
+    'CCIV': {'customer_group': 10, 'price_list': '10', 'account_assign_grp': '00'},
+    'CCLQ': {'customer_group': 30, 'price_list': '30', 'account_assign_grp': '20'},
+    'CDEF': {'customer_group': 21, 'price_list': '20', 'account_assign_grp': '10'},
+    'CEXP': {'customer_group': 50, 'price_list': '60', 'account_assign_grp': '50'},
+    'CIBD': {'customer_group': 40, 'price_list': '50', 'account_assign_grp': '40'},
+    'MISC': {'customer_group': 70, 'price_list': '80', 'account_assign_grp': '70'},
+    'ZGRP': {'customer_group': 10, 'price_list': '10', 'account_assign_grp': '00'},
+    'COTS': {'customer_group': 70, 'price_list': '70', 'account_assign_grp': '70'},
+}
+
+
+def _customer_bp_grouping(onboarding):
+    # Source not yet defined - see CustomerExportView.COLUMNS.
+    return ''
+
+
+def _customer_grouping_field(onboarding, field):
+    return CUSTOMER_BP_GROUPING_TABLE.get(_customer_bp_grouping(onboarding), {}).get(field, '')
+
+
 class CustomerExportView(APIView):
     """SAP mass customer-creation template. Column values are populated
     incrementally - hardcoded defaults and conditional logic are added per
@@ -687,7 +712,7 @@ class CustomerExportView(APIView):
 
     COLUMNS = [
         ('Business Category', lambda o: 2),
-        ('BP Grouping', lambda o: ''),
+        ('BP Grouping', lambda o: _customer_bp_grouping(o)),
         ('Title', lambda o: ''),
         ('Name1', lambda o: o.company_name),
         ('Name2', lambda o: o.company_name_2),
@@ -752,14 +777,14 @@ class CustomerExportView(APIView):
         ('Distribution Channel', lambda o: o.distribution_channel),
         ('Division', lambda o: o.division),
         ('Sales District', lambda o: ''),
-        ('Customer Group', lambda o: ''),
+        ('Customer Group', lambda o: _customer_grouping_field(o, 'customer_group')),
         ('Sales Office', lambda o: ''),
         ('Sales Group', lambda o: ''),
         ('Virtual Bank Account Code', lambda o: ''),
         ('Currency', lambda o: 'INR'),
         ('Price Grp.', lambda o: '01'),
         ('Customer Pri. Pro.', lambda o: ''),
-        ('Price List', lambda o: ''),
+        ('Price List', lambda o: _customer_grouping_field(o, 'price_list')),
         ('Cust.Stats.Grp', lambda o: 1),
         ('Delivery Priority', lambda o: '02'),
         ('Delivering Plant', lambda o: o.delivery_plant),
@@ -767,7 +792,7 @@ class CustomerExportView(APIView):
         ('Incoterms', lambda o: 'CFR'),
         ('Incoterms Location 1', lambda o: 'Costs and Freight'),
         ('Payment Terms', lambda o: o.payment_terms),
-        ('Account Assign. Grp.', lambda o: ''),
+        ('Account Assign. Grp.', lambda o: _customer_grouping_field(o, 'account_assign_grp')),
     ]
 
     def build_workbook_response(self, queryset, filename):
