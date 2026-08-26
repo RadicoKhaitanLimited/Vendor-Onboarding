@@ -9,7 +9,12 @@ def serve_frontend(request, *args, **kwargs):
     index_path = settings.FRONTEND_DIST / 'index.html'
     if not index_path.exists():
         return HttpResponseNotFound('Frontend build not found — run "npm run build" in frontend/.')
-    return HttpResponse(index_path.read_text(encoding='utf-8'))
+    response = HttpResponse(index_path.read_text(encoding='utf-8'))
+    # index.html references content-hashed JS/CSS filenames that change on every
+    # deploy - it must never be cached, or browsers keep serving a stale shell
+    # that points at assets no longer on disk (blank page until a hard refresh).
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 
 urlpatterns = [
