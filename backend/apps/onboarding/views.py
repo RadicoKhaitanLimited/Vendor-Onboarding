@@ -704,6 +704,15 @@ def _customer_grouping_field(onboarding, field):
     return CUSTOMER_BP_GROUPING_TABLE.get(_customer_bp_grouping(onboarding), {}).get(field, '')
 
 
+def _customer_gst_tax_classification(onboarding):
+    """JTC1 tax classification: 0 = GST Registered, 1 = GST Non-Registered,
+    3 = Deemed Export (country other than India)."""
+    country = str(onboarding.country or '').strip().lower()
+    if country and country not in ('india', 'in'):
+        return 3
+    return 0 if onboarding.gst_applicable else 1
+
+
 class CustomerExportView(APIView):
     """SAP mass customer-creation template. Column values are populated
     incrementally - hardcoded defaults and conditional logic are added per
@@ -795,10 +804,9 @@ class CustomerExportView(APIView):
         ('Payment Terms', lambda o: o.payment_terms),
         ('Account Assign. Grp.', lambda o: _customer_grouping_field(o, 'account_assign_grp')),
         # Fixed SAP tax condition types, constant for every customer per the
-        # reference template. The paired "Cust. Tax Classi." values vary by
-        # region/GST status (per the JIN1-JIN6..CST-VAT lookup sheet) and are
-        # left blank pending confirmation - tax/GST classification is
-        # compliance-sensitive and shouldn't be guessed.
+        # reference template. JIN1/JIN6 classification depends on region and
+        # the reference sheet itself flags that data "TO BE MAPPED" (still
+        # being finalized), so left blank rather than guessed.
         ('Tax1 category', lambda o: 'JIN1'),
         ('Cust. Tax Classi.', lambda o: ''),
         ('Tax1 category', lambda o: 'JIN6'),
@@ -806,7 +814,7 @@ class CustomerExportView(APIView):
         ('Tax1 category', lambda o: 'JOIG'),
         ('Cust. Tax Classi.', lambda o: ''),
         ('Tax1 category', lambda o: 'JTC1'),
-        ('Cust. Tax Classi.', lambda o: ''),
+        ('Cust. Tax Classi.', lambda o: _customer_gst_tax_classification(o)),
         ('Tax1 category', lambda o: ''),
         ('Cust. Tax Classi.', lambda o: ''),
         ('Customer Group 1', lambda o: ''),
