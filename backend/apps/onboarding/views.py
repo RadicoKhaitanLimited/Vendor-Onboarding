@@ -794,6 +794,29 @@ class CustomerExportView(APIView):
         ('Incoterms Location 1', lambda o: 'Costs and Freight'),
         ('Payment Terms', lambda o: o.payment_terms),
         ('Account Assign. Grp.', lambda o: _customer_grouping_field(o, 'account_assign_grp')),
+        # Fixed SAP tax condition types, constant for every customer per the
+        # reference template. The paired "Cust. Tax Classi." values vary by
+        # region/GST status (per the JIN1-JIN6..CST-VAT lookup sheet) and are
+        # left blank pending confirmation - tax/GST classification is
+        # compliance-sensitive and shouldn't be guessed.
+        ('Tax1 category', lambda o: 'JIN1'),
+        ('Cust. Tax Classi.', lambda o: ''),
+        ('Tax1 category', lambda o: 'JIN6'),
+        ('Cust. Tax Classi.', lambda o: ''),
+        ('Tax1 category', lambda o: 'JOIG'),
+        ('Cust. Tax Classi.', lambda o: ''),
+        ('Tax1 category', lambda o: 'JTC1'),
+        ('Cust. Tax Classi.', lambda o: ''),
+        ('Tax1 category', lambda o: ''),
+        ('Cust. Tax Classi.', lambda o: ''),
+        ('Customer Group 1', lambda o: ''),
+        ('Customer Group 2', lambda o: ''),
+        ('Customer Group 3', lambda o: ''),
+        ('Customer Group 4', lambda o: ''),
+        ('Customer Group 5', lambda o: ''),
+        ('Credit Segment', lambda o: ''),
+        ('Check Rule', lambda o: ''),
+        ('Credit Limit', lambda o: ''),
     ]
 
     def build_workbook_response(self, queryset, filename):
