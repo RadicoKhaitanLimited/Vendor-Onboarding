@@ -1,134 +1,217 @@
-# Deploying on GCP (e2-micro)
+# Deploying on AWS EC2
 
-Django serves the API; nginx serves the built React app and static/media
-files directly and proxies `/api/` + `/admin/` to gunicorn on
-`127.0.0.1:8000`. See `../../.claude/plans/` (or ask Claude Code) for the
-full migration plan this setup came from - this doc only covers the
-steady-state deploy/redeploy flow once the VM is bootstrapped.
+This is the **only** supported deployment path for this app (the previous
+Windows/COB setup and an earlier abandoned GCP attempt have both been
+retired and removed). Django serves the API; nginx serves the built React
+app and static/media files directly and proxies `/api/` + `/admin/` to
+gunicorn on `127.0.0.1:8000`. TLS is a free Let's Encrypt certificate via
+certbot. The database is Neon (managed Postgres), not local to the VM.
 
-Public hostname (Phase C, no custom domain): a free
-[sslip.io](https://sslip.io) hostname derived from the VM's static IP, e.g.
-`34.123.45.67` -> `34-123-45-67.sslip.io`. A real domain can be swapped in
-later (see the plan's deferred "future domain migration" section) without
-changing anything below except `ALLOWED_HOSTS`/`CORS_ALLOWED_ORIGINS`/
-`CSRF_TRUSTED_ORIGINS`/`FRONTEND_URL` and the nginx `server_name`.
+```
+Vendor's browser
+      │  HTTPS (Let's Encrypt cert, via certbot)
+      ▼
+AWS EC2 t3.micro (Ubuntu, Elastic IP)
+   nginx :80 (redirect) / :443 (TLS)
+      ├─ / , /assets/*   → frontend/dist/ (built off-VM, shipped by push.sh)
+      ├─ /static/*       → backend/staticfiles/
+      ├─ /media/*        → backend/media/
+      └─ /api/*, /admin/*→ proxy_pass → gunicorn on 127.0.0.1:8000
+                                 │
+                                 ▼
+                        Neon Postgres (DATABASE_URL, sslmode=require)
+```
+
+## Current live instance (reference)
+
+- Region: **eu-north-1** (Stockholm)
+- Instance: `vendor-onboarding-prod`, `t3.micro`, Ubuntu
+- Public hostname: `56-228-57-231.sslip.io` (free [sslip.io](https://sslip.io)
+  hostname auto-resolving to the Elastic IP `56.228.57.231` - no domain
+  purchase, no DNS handoff needed). A real `radico.co.in` subdomain can be
+  swapped in later - see "Migrating to a custom domain" below.
+- App code lives at `/opt/vendor-onboarding` on the VM, owned by a
+  dedicated `deploy` user (not `ubuntu`, not root).
 
 ## One-time VM bootstrap
 
-Done once, on a fresh VM, as root/sudo:
+This has already been done on the current instance; only needed again if
+standing up a **new** instance from scratch.
 
 ```bash
-apt update && apt upgrade -y
-apt install -y nginx python3 python3-venv python3-pip git certbot python3-certbot-nginx
+# as the ubuntu user (initial SSH access)
+sudo apt-get update -y && sudo apt-get upgrade -y
+sudo apt-get install -y nginx python3 python3-venv python3-pip git certbot python3-certbot-nginx
+```
 
-# dedicated non-root user that owns the app and runs gunicorn
-adduser --disabled-password --gecos "" deploy
+> Fresh Ubuntu AMIs run `unattended-upgrades` in the background right after
+> boot, which can hold the `dpkg` lock for several minutes (and may trigger
+> an automatic reboot for kernel updates). If `apt-get install` fails with
+> "Could not get lock", just wait - check with
+> `sudo fuser /var/lib/dpkg/lock-frontend` and retry once it's free.
 
-# 2GB swap - absorbs apt/pip bursts on a 1GB VM without slowing steady state
-fallocate -l 2G /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
-sysctl vm.swappiness=10
-echo 'vm.swappiness=10' >> /etc/sysctl.conf
+```bash
+sudo adduser --disabled-password --gecos "" deploy
+sudo mkdir -p /opt/vendor-onboarding && sudo chown deploy:deploy /opt/vendor-onboarding
 
-# app code
-su - deploy
-git clone git@github.com:RadicoKhaitanLimited/Vendor-Onboarding.git /opt/vendor-onboarding
+# 2GB swap - absorbs apt/pip bursts on a 1GB instance without slowing steady state
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+sudo sysctl vm.swappiness=10 && echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+```
+
+**GitHub access**: generate a deploy key as the `deploy` user and add it as
+a **read-only** Deploy Key on the GitHub repo (Settings → Deploy keys):
+
+```bash
+sudo -u deploy ssh-keygen -t ed25519 -f /home/deploy/.ssh/github_deploy_key -N "" -C "vendor-onboarding-ec2-deploy"
+sudo -u deploy bash -c 'cat >> ~/.ssh/config << EOF
+Host github.com
+  IdentityFile ~/.ssh/github_deploy_key
+  IdentitiesOnly yes
+EOF'
+sudo -u deploy cat /home/deploy/.ssh/github_deploy_key.pub   # add this to GitHub
+```
+
+```bash
+sudo -u deploy git clone git@github.com:RadicoKhaitanLimited/Vendor-Onboarding.git /opt/vendor-onboarding
 cd /opt/vendor-onboarding/backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+sudo -u deploy python3 -m venv venv
+sudo -u deploy venv/bin/pip install -r requirements.txt
 ```
 
 Create `/opt/vendor-onboarding/backend/.env` (copy `.env.example`, fill in
-real values - see that file for what's required). `chmod 600` it.
+real values - see that file for what's required, including the "Production
+example" block for this exact stack). `chmod 600` it; owned by `deploy`.
 
 ```bash
-python manage.py migrate
-python manage.py collectstatic --noinput
+sudo -u deploy venv/bin/python manage.py migrate
+sudo -u deploy venv/bin/python manage.py collectstatic --noinput
 ```
 
-Install the systemd unit and nginx config (as root), then start:
+Install the systemd unit, then start it:
 
 ```bash
-cp deploy/systemd/vendor-onboarding.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --now vendor-onboarding
-
-# edit <APP_ROOT> and <HOSTNAME> placeholders first
-cp deploy/nginx/vendor-onboarding.conf /etc/nginx/sites-available/vendor-onboarding
-ln -s /etc/nginx/sites-available/vendor-onboarding /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
+sudo cp deploy/systemd/vendor-onboarding.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now vendor-onboarding
 ```
-
-Checkpoint: `curl http://<static-ip>/` from outside the VM should load the
-app over plain HTTP.
-
-Then get TLS (also one-time):
-
-```bash
-certbot --nginx -d <ip-with-dashes>.sslip.io
-```
-
-Certbot rewrites the nginx config to add the `443` block and the `80->443`
-redirect, and installs its own renewal timer - no manual renewal upkeep.
 
 Let the `deploy` user restart the service without a password (needed by
 `remote-deploy.sh`):
 
 ```bash
 echo 'deploy ALL=(root) NOPASSWD: /bin/systemctl restart vendor-onboarding' \
-    > /etc/sudoers.d/vendor-onboarding-deploy
+    | sudo tee /etc/sudoers.d/vendor-onboarding-deploy
+sudo visudo -c   # validate syntax before trusting it
 ```
+
+Install nginx (HTTP only first - certbot adds the TLS block automatically
+in the next step, don't hand-write it):
+
+```bash
+sudo sed -e "s|<APP_ROOT>|/opt/vendor-onboarding|g" -e "s|<HOSTNAME>|56-228-57-231.sslip.io|g" \
+    /opt/vendor-onboarding/backend/deploy/nginx/vendor-onboarding.conf \
+    | sudo tee /etc/nginx/sites-available/vendor-onboarding
+sudo ln -sf /etc/nginx/sites-available/vendor-onboarding /etc/nginx/sites-enabled/vendor-onboarding
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**AWS security group**: open inbound TCP 80 and 443 from anywhere (SSH/22
+should stay restricted to admin IPs only) - EC2 console → Security Groups →
+edit inbound rules. Nothing above is reachable externally until this is
+done.
+
+Checkpoint: `curl http://<elastic-ip>/` from outside the VM should load the
+app over plain HTTP.
+
+Then get TLS (also one-time per hostname):
+
+```bash
+sudo certbot --nginx -d 56-228-57-231.sslip.io --agree-tos -m <admin-email> --redirect
+```
+
+Certbot rewrites the nginx config to add the `443` block and the `80->443`
+redirect, and installs its own renewal timer - no manual renewal upkeep.
 
 ## Deploying new functionality (every time code changes)
 
-**Frontend changed (or both frontend + backend):** from the **dev machine**:
+Both scripts connect over SSH as the `deploy` user. Load the SSH key into
+an agent first so you're not passing `-i` around:
 
 ```bash
-backend/deploy/push.sh
+eval $(ssh-agent -s)
+ssh-add /path/to/vendor-onboarding-key
+```
+
+**Frontend changed (or both frontend + backend):** from the **dev
+machine**:
+
+```bash
+VM_HOST=56.228.57.231 VM_USER=deploy bash backend/deploy/push.sh
 ```
 
 Builds `frontend/dist` locally (the VM has no Node.js on purpose - Vite
-builds are memory-hungry and risk OOM on a 1GB box), uploads it, and
+builds are memory-hungry and risk OOM on a 1GB instance), uploads it, and
 triggers the backend redeploy below over SSH.
 
-**Backend-only change:** either run `push.sh` (it still works, just rebuilds
-a frontend that didn't change), or SSH into the VM and run directly:
+**Backend-only change:** either run `push.sh` (it still works, just
+re-uploads a frontend that didn't change), or SSH in and run directly:
 
 ```bash
-/opt/vendor-onboarding/backend/deploy/remote-deploy.sh
+ssh deploy@56.228.57.231 /opt/vendor-onboarding/backend/deploy/remote-deploy.sh
 ```
 
-Pulls latest code, reinstalls deps, runs migrations, runs `collectstatic`,
-and restarts gunicorn. Stops on the first failure so the running app is
-never left half-updated.
+Pulls latest code (`git pull`), reinstalls deps, runs migrations, runs
+`collectstatic`, and restarts gunicorn. Stops on the first failure so the
+running app is never left half-updated.
+
+The normal flow: commit + `git push` locally like any other change, then
+run one of the two commands above.
 
 ## Managing the service
 
 ```bash
-systemctl status vendor-onboarding
-journalctl -u vendor-onboarding -n 100 -f   # logs
+sudo systemctl status vendor-onboarding
+sudo journalctl -u vendor-onboarding -n 100 -f   # logs
 sudo systemctl restart vendor-onboarding
 ```
 
 ## Verifying
 
-- `curl -sI https://<ip-with-dashes>.sslip.io/` - valid TLS cert, 200
+- `curl -sI https://56-228-57-231.sslip.io/` - valid TLS cert, 200
 - Login, an authenticated API call, admin panel, document upload/download,
   and a notification email should all work end-to-end
 - `sudo systemctl kill -s SIGKILL vendor-onboarding` then confirm systemd
   auto-restarts it within a few seconds
 - `sudo reboot` then confirm nginx + gunicorn come back on their own
 
-## Windows/COB deployment (retired)
+## Long-term maintenance
 
-The previous Windows Server deployment (waitress + Scheduled Task on COB,
-`172.30.6.198`) has been fully torn down. `redeploy.bat`, `run.bat`,
-`restart_service.ps1`, and `setup_service.ps1` in this directory document
-that retired setup and are kept only as a cold reference until this new
-deployment has soaked for a couple of weeks - they are not part of the
-current deploy flow.
+- **AWS free tier ends 12 months after account creation** - after that the
+  instance costs roughly $8-12/month if left running continuously. Put a
+  calendar reminder near month 11 to decide: pay, resize down, or migrate.
+- **AWS Budget alert** should already be configured (Billing → Budgets) -
+  check it fires correctly.
+- **OS security updates** aren't automatic beyond what
+  `unattended-upgrades` covers - periodically run
+  `sudo apt-get update && sudo apt-get upgrade -y` and reboot.
+- **Neon usage**: glance at the Neon dashboard occasionally to confirm
+  you're still comfortably inside the free tier (storage, compute hours).
+- **Secrets rotation**: any credential that was ever pasted into a chat, a
+  ticket, or committed to git history should be treated as exposed and
+  rotated, even after removing it from the current file - `git log -p`
+  still shows old values to anyone with repo access.
+
+## Migrating to a custom domain
+
+When ready to move from `56-228-57-231.sslip.io` to a `radico.co.in`
+subdomain: get a Cloudflare account, ask whoever controls the `radico.co.in`
+DNS zone for a one-time NS delegation of the subdomain to Cloudflare (after
+that, no further IT involvement), switch nginx from the Let's Encrypt cert
+to a Cloudflare Origin Certificate with SSL mode "Full (strict)", update
+`ALLOWED_HOSTS` / `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS` /
+`FRONTEND_URL` in `.env`, and restrict the security group's 80/443 rules to
+Cloudflare's published IP ranges.
