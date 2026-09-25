@@ -1,0 +1,26 @@
+[Unit]
+Description=Vendor Onboarding Portal - Django app served via gunicorn
+After=network.target
+
+[Service]
+Type=notify
+User=deploy
+Group=deploy
+WorkingDirectory=/opt/vendor-onboarding/backend
+ExecStart=/opt/vendor-onboarding/backend/venv/bin/gunicorn \
+    --workers 2 \
+    --threads 2 \
+    --worker-class gthread \
+    --timeout 60 \
+    --max-requests 500 \
+    --max-requests-jitter 50 \
+    --bind 127.0.0.1:8000 \
+    config.wsgi:application
+Restart=on-failure
+RestartSec=3
+
+# python-decouple reads backend/.env from WorkingDirectory automatically -
+# no EnvironmentFile= needed here. Keep that file at chmod 600.
+
+[Install]
+WantedBy=multi-user.target

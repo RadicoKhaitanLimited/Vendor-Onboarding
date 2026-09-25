@@ -24,6 +24,24 @@ railway_public_domain = config('RAILWAY_PUBLIC_DOMAIN', default='')
 if railway_public_domain and railway_public_domain not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(railway_public_domain)
 
+# ── Reverse proxy / TLS awareness ────────────────────────────────
+# IIS (ARR + URL Rewrite) will terminate TLS for https://onboard.radico.co.in
+# and forward plain HTTP to waitress on localhost:8000. Django needs to trust
+# the X-Forwarded-Proto/Host headers IIS sets, otherwise request.is_secure()
+# is always False behind the proxy, breaking secure cookies and CSRF checks.
+#
+# The three "hard" flags are gated behind DJANGO_FORCE_HTTPS (default False)
+# so http://172.30.6.198:8000 keeps working unchanged until the new hostname
+# is verified end-to-end, and local dev (runserver, no proxy) is unaffected.
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+FORCE_HTTPS = config('DJANGO_FORCE_HTTPS', default=False, cast=config_bool)
+SECURE_SSL_REDIRECT = FORCE_HTTPS
+SESSION_COOKIE_SECURE = FORCE_HTTPS
+CSRF_COOKIE_SECURE = FORCE_HTTPS
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -94,7 +112,7 @@ else:
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': config('DB_NAME', default='vendor_onboarding'),
             'USER': config('DB_USER', default='postgres'),
-            'PASSWORD': config('DB_PASSWORD', default='Admin@1234'),
+            'PASSWORD': config('DB_PASSWORD', default='postgres'),
             'HOST': config('DB_HOST', default='localhost'),
             'PORT': config('DB_PORT', default='5432'),
         }
