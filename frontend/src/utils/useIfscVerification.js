@@ -41,6 +41,7 @@ export function useIfscVerification(ifscCode, bankName, branchName, set) {
 
     if (lastCheckedResult.current?.code === code) {
       const result = lastCheckedResult.current
+      if (!branchName.trim()) set('branch_name', result.branch)
       if (!bankName) {
         set('bank_name', closestBankOption(result.bank))
       } else if (!bankNamesLikelyMatch(bankName, result.bank)) {
@@ -60,7 +61,7 @@ export function useIfscVerification(ifscCode, bankName, branchName, set) {
           setIfscNotFound(true)
           return
         }
-        lastCheckedResult.current = { code, bank: result.bank }
+        lastCheckedResult.current = { code, bank: result.bank, branch: result.branch }
         if (!branchName.trim()) set('branch_name', result.branch)
         if (!bankName) {
           set('bank_name', closestBankOption(result.bank))
